@@ -6,6 +6,7 @@ import PickupPage from "@/pages/PickupPage";
 import PricingPage from "@/pages/PricingPage";
 import CustomerList from "@/pages/CustomerList";
 import CustomerDetail from "@/pages/CustomerDetail";
+import RemnantList from "@/pages/RemnantList";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/customers" element={<CustomerList />} />
           <Route path="/customers/new" element={<CustomerDetail />} />
           <Route path="/customers/:id" element={<CustomerDetail />} />
+          <Route path="/remnants" element={<RemnantList />} />
           <Route path="/pickup" element={<PickupPage />} />
           <Route path="/pricing" element={<PricingPage />} />
         </Routes>

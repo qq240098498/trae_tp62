@@ -157,3 +157,33 @@ export interface CustomerProfile {
   createdAt: string;
   updatedAt: string;
 }
+
+export type RemnantStatus = 'available' | 'reserved' | 'used_up';
+
+export const REMNANT_STATUS_LABELS: Record<RemnantStatus, string> = {
+  available: '可用',
+  reserved: '已预留',
+  used_up: '已用完',
+};
+
+export interface FabricRemnant {
+  id: string;
+  fabric: string;
+  color: string;
+  quantity: number;
+  unit: string;
+  sourceOrderId?: string;
+  sourceOrderNo?: string;
+  description?: string;
+  status: RemnantStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const REMNANT_UNITS = ['cm²', 'm²', '克', '米'];
+
+export const COLOR_FAMILIES = [
+  '白色系', '黑色系', '灰色系', '红色系', '橙色系', '黄色系',
+  '绿色系', '蓝色系', '紫色系', '粉色系', '棕色系', '驼色系',
+  '牛仔蓝', '多色/花色', '其他',
+];

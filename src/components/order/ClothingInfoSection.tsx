@@ -1,5 +1,8 @@
-import { Shirt } from 'lucide-react';
+import { useMemo } from 'react';
+import { Shirt, Sparkles, Package, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { CLOTHING_CATEGORIES, FABRIC_TYPES } from '@/types';
+import { useRemnantStore } from '@/store/remnantStore';
 
 interface ClothingInfo {
   clothingCategory: string;
@@ -15,6 +18,13 @@ interface Props {
 }
 
 export default function ClothingInfoSection({ data, onChange }: Props) {
+  const { findMatchingRemnants } = useRemnantStore();
+
+  const matchingRemnants = useMemo(() => {
+    if (!data.fabric && !data.color) return [];
+    return findMatchingRemnants(data.fabric, data.color);
+  }, [data.fabric, data.color, findMatchingRemnants]);
+
   const handleChange = (key: keyof ClothingInfo, value: string) => {
     onChange({ ...data, [key]: value });
   };
@@ -77,6 +87,67 @@ export default function ClothingInfoSection({ data, onChange }: Props) {
           />
         </div>
       </div>
+
+      {matchingRemnants.length > 0 && (
+        <div className="mt-5 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-emerald-100 rounded-lg shrink-0">
+              <Sparkles className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="font-semibold text-emerald-800">
+                  发现 {matchingRemnants.length} 块匹配余料
+                </span>
+                <span className="text-xs text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  优先使用，节省成本
+                </span>
+              </div>
+              <p className="text-sm text-emerald-700 mb-3">
+                以下余料材质{data.fabric ? `「${data.fabric}」` : ''}
+                {data.color ? ` 颜色「${data.color}」` : ''}相近，可优先考虑使用：
+              </p>
+              <div className="space-y-2">
+                {matchingRemnants.slice(0, 3).map(remnant => (
+                  <div
+                    key={remnant.id}
+                    className="flex items-center justify-between p-3 bg-white/70 rounded-lg border border-emerald-100"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Package className="w-4 h-4 text-emerald-500" />
+                      <div>
+                        <span className="text-sm font-medium text-emerald-800">
+                          {remnant.fabric} · {remnant.color}
+                        </span>
+                        <span className="text-xs text-emerald-600 ml-2">
+                          {remnant.quantity} {remnant.unit}
+                        </span>
+                      </div>
+                    </div>
+                    {remnant.sourceOrderNo && (
+                      <span className="text-xs text-emerald-500">
+                        来源：{remnant.sourceOrderNo}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {matchingRemnants.length > 3 && (
+                <p className="text-xs text-emerald-600 mt-2">
+                  还有 {matchingRemnants.length - 3} 块余料...
+                </p>
+              )}
+              <Link
+                to="/remnants"
+                className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+              >
+                查看全部余料
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-5">
         <label className="input-label">修改需求描述</label>

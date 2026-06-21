@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { Scissors, ListTodo, PackageCheck, Settings, Receipt, Users } from 'lucide-react';
+import { Scissors, ListTodo, PackageCheck, Settings, Receipt, Users, Layers } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: '订单管理', icon: ListTodo },
   { to: '/customers', label: '顾客档案', icon: Users },
+  { to: '/remnants', label: '面料余料', icon: Layers },
   { to: '/pickup', label: '取件通知', icon: PackageCheck },
   { to: '/pricing', label: '价格配置', icon: Settings },
 ];
