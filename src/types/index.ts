@@ -42,6 +42,8 @@ export interface Order {
   defectDescription: string;
   defectConfirmed: boolean;
   notified: boolean;
+  notifiedAt?: string;
+  notifyCount: number;
   pickedUp: boolean;
   pickedUpAt?: string;
   createdAt: string;

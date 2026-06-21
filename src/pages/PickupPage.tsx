@@ -1,16 +1,19 @@
-import { Link } from 'react-router-dom';
-import { Bell, PackageCheck, Phone, Calendar, Clock, CheckCircle2, Send } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bell, PackageCheck, Phone, Calendar, Clock, CheckCircle2, Send, Eye } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import PageContent from '@/components/PageContent';
 import { useOrderStore } from '@/store/orderStore';
-import { formatDate, formatCurrency } from '@/utils/helpers';
+import { formatDate, formatCurrency, formatDateTime } from '@/utils/helpers';
 import type { Order } from '@/types';
 
-function PickupCard({ order, onNotify, onPickup }: {
+function PickupCard({ order, onNotify, onPickup, onView }: {
   order: Order;
   onNotify: () => void;
   onPickup: () => void;
+  onView: () => void;
 }) {
+  const notifyCount = order.notifyCount || 0;
+
   return (
     <div className="card p-6 animate-slide-up">
       <div className="flex items-start justify-between mb-4">
@@ -19,7 +22,7 @@ function PickupCard({ order, onNotify, onPickup }: {
             <h3 className="font-serif text-lg font-semibold text-coffee-800">{order.customerName}</h3>
             <span className="badge badge-ready">待取件</span>
             {order.notified && (
-              <span className="badge bg-green-100 text-green-700">已通知</span>
+              <span className="badge bg-green-100 text-green-700">已通知 {notifyCount > 0 && `(${notifyCount}次)`}</span>
             )}
           </div>
           <p className="text-sm text-coffee-500">#{order.orderNo}</p>
@@ -42,6 +45,12 @@ function PickupCard({ order, onNotify, onPickup }: {
           <Clock className="w-4 h-4 text-coffee-400" />
           <span>修改项目：{order.alterationItems.map(i => i.name).join('、')}</span>
         </div>
+        {order.notified && order.notifiedAt && (
+          <div className="flex items-center gap-2 text-green-600">
+            <Bell className="w-4 h-4" />
+            <span className="text-xs">最近通知：{formatDateTime(order.notifiedAt)}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3">
@@ -64,12 +73,21 @@ function PickupCard({ order, onNotify, onPickup }: {
           确认取件
         </button>
       </div>
+
+      <button
+        onClick={onView}
+        className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm text-coffee-500 hover:bg-coffee-50 hover:text-coffee-700 transition-all"
+      >
+        <Eye className="w-4 h-4" />
+        查看订单详情
+      </button>
     </div>
   );
 }
 
 export default function PickupPage() {
   const { orders, markNotified, confirmPickup, getOrderById } = useOrderStore();
+  const navigate = useNavigate();
 
   const readyOrders = orders
     .filter(o => o.status === 'ready')
@@ -82,7 +100,8 @@ export default function PickupPage() {
     if (!order) return;
     try {
       markNotified(orderId);
-      alert(`已向 ${order.customerName}（${order.customerPhone}）发送取件通知`);
+      const notifyCount = (order.notifyCount || 0) + 1;
+      alert(`已向 ${order.customerName}（${order.customerPhone}）发送第 ${notifyCount} 次取件通知`);
     } catch (e) {
       console.error('发送通知失败:', e);
       alert('发送通知失败，请重试');
@@ -100,6 +119,10 @@ export default function PickupPage() {
         alert('操作失败，请重试');
       }
     }
+  };
+
+  const handleView = (orderId: string) => {
+    navigate(`/orders/${orderId}`);
   };
 
   return (
@@ -157,6 +180,7 @@ export default function PickupPage() {
                 order={order}
                 onNotify={() => handleNotify(order.id)}
                 onPickup={() => handlePickup(order.id)}
+                onView={() => handleView(order.id)}
               />
             ))}
           </div>

@@ -62,6 +62,7 @@ export const useOrderStore = create<OrderStore>()(
           defectDescription: data.defectDescription || '',
           defectConfirmed: data.defectConfirmed || false,
           notified: false,
+          notifyCount: 0,
           pickedUp: false,
           createdAt: now,
           updatedAt: now,
@@ -97,9 +98,17 @@ export const useOrderStore = create<OrderStore>()(
       markNotified: (id: string) => {
         const now = new Date().toISOString();
         set(state => ({
-          orders: state.orders.map(o =>
-            o.id === id ? { ...o, notified: true, updatedAt: now } : o
-          ),
+          orders: state.orders.map(o => {
+            if (o.id !== id) return o;
+            const currentCount = o.notifyCount || 0;
+            return {
+              ...o,
+              notified: true,
+              notifiedAt: now,
+              notifyCount: currentCount + 1,
+              updatedAt: now,
+            };
+          }),
         }));
       },
 
@@ -137,6 +146,21 @@ export const useOrderStore = create<OrderStore>()(
     }),
     {
       name: 'tailor-shop-storage',
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        if (version === 0) {
+          const state = persistedState as Record<string, unknown>;
+          if (Array.isArray(state.orders)) {
+            state.orders = state.orders.map((order: Record<string, unknown>) => ({
+              ...order,
+              notifyCount: typeof order.notifyCount === 'number' ? order.notifyCount : 0,
+              notifiedAt: order.notifiedAt || undefined,
+            }));
+          }
+          return state;
+        }
+        return persistedState as Record<string, unknown>;
+      },
     }
   )
 );

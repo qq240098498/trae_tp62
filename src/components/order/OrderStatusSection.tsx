@@ -1,4 +1,4 @@
-import { ArrowRight, Bell, PackageCheck, RotateCcw } from 'lucide-react';
+import { ArrowRight, Bell, PackageCheck, RotateCcw, Clock } from 'lucide-react';
 import type { Order, OrderStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
@@ -17,6 +17,7 @@ export default function OrderStatusSection({ order, onStatusChange, onNotify, on
   const currentIndex = statusFlow.indexOf(order.status);
   const canAdvance = currentIndex < statusFlow.length - 2;
   const nextStatus = canAdvance ? statusFlow[currentIndex + 1] : null;
+  const notifyCount = order.notifyCount || 0;
 
   return (
     <div className="card p-6">
@@ -56,6 +57,22 @@ export default function OrderStatusSection({ order, onStatusChange, onNotify, on
           );
         })}
       </div>
+
+      {order.notified && (
+        <div className="mb-5 p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 text-green-700">
+            <Bell className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              已发送 {notifyCount} 次通知
+            </span>
+            {order.notifiedAt && (
+              <span className="text-sm text-green-600 ml-auto">
+                最近：{formatDateTime(order.notifiedAt)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         {nextStatus && (
@@ -98,11 +115,13 @@ export default function OrderStatusSection({ order, onStatusChange, onNotify, on
       </div>
 
       <div className="mt-5 pt-5 border-t border-coffee-100 grid grid-cols-2 gap-4 text-sm">
-        <div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-coffee-400" />
           <span className="text-coffee-500">创建时间：</span>
           <span className="text-coffee-700">{formatDateTime(order.createdAt)}</span>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-coffee-400" />
           <span className="text-coffee-500">预计取件：</span>
           <span className="text-coffee-700">{formatDate(order.pickupDate)}</span>
         </div>
