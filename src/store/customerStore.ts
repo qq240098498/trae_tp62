@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CustomerProfile, BodyMeasurements, Measurement } from '@/types';
+import type { CustomerProfile, BodyMeasurements, Measurement, AlterationPreferences, LastAlterationRecord, Order } from '@/types';
 import { BODY_MEASUREMENT_KEYS } from '@/types';
 import { generateId, todayStr } from '@/utils/helpers';
 
@@ -19,6 +19,19 @@ const mockCustomerProfiles: CustomerProfile[] = [
     },
     lastMeasurementDate: '2026-06-18',
     orderCount: 1,
+    preferences: {
+      fitPreference: 'slim',
+      hemPreference: 'original',
+      keepOriginalHem: true,
+      notes: '喜欢修身版型，西裤一定要保留原边',
+    },
+    lastAlteration: {
+      orderId: 'order-1',
+      orderNo: 'TF20260618001',
+      clothingCategory: '西装',
+      alterationSummary: '衣长改短3cm，袖长改短2cm，腰围收小4cm',
+      date: '2026-06-18',
+    },
     createdAt: '2026-06-18T10:30:00Z',
     updatedAt: '2026-06-18T10:30:00Z',
   },
@@ -36,6 +49,17 @@ const mockCustomerProfiles: CustomerProfile[] = [
     },
     lastMeasurementDate: '2026-06-19',
     orderCount: 1,
+    preferences: {
+      fitPreference: 'regular',
+      notes: '连衣裙喜欢腰身要合身，不要太紧身',
+    },
+    lastAlteration: {
+      orderId: 'order-2',
+      orderNo: 'TF20260619002',
+      clothingCategory: '连衣裙',
+      alterationSummary: '领口改小4cm，腰围收小4cm，衣长改短3cm',
+      date: '2026-06-19',
+    },
     createdAt: '2026-06-19T14:20:00Z',
     updatedAt: '2026-06-19T14:20:00Z',
   },
@@ -53,6 +77,18 @@ const mockCustomerProfiles: CustomerProfile[] = [
     },
     lastMeasurementDate: '2026-06-20',
     orderCount: 1,
+    preferences: {
+      fitPreference: 'loose',
+      hemPreference: 'regular',
+      notes: '年纪大了喜欢宽松一点，穿着舒服',
+    },
+    lastAlteration: {
+      orderId: 'order-3',
+      orderNo: 'TF20260620003',
+      clothingCategory: '西裤',
+      alterationSummary: '腰围收小4cm，更换拉链',
+      date: '2026-06-20',
+    },
     createdAt: '2026-06-20T09:00:00Z',
     updatedAt: '2026-06-20T09:00:00Z',
   },
@@ -70,6 +106,18 @@ const mockCustomerProfiles: CustomerProfile[] = [
     },
     lastMeasurementDate: '2026-06-15',
     orderCount: 1,
+    preferences: {
+      fitPreference: 'slim',
+      keepOriginalHem: false,
+      notes: '大衣喜欢修身，袖口要补好',
+    },
+    lastAlteration: {
+      orderId: 'order-4',
+      orderNo: 'TF20260615004',
+      clothingCategory: '大衣',
+      alterationSummary: '整体放码收一码，衣长改短3cm，袖口补洞',
+      date: '2026-06-15',
+    },
     createdAt: '2026-06-15T11:20:00Z',
     updatedAt: '2026-06-15T11:20:00Z',
   },
@@ -107,6 +155,8 @@ interface CustomerStore {
   createProfile: (data: Partial<CustomerProfile>) => CustomerProfile;
   updateProfile: (id: string, data: Partial<CustomerProfile>) => void;
   deleteProfile: (id: string) => void;
+  updatePreferences: (id: string, preferences: Partial<AlterationPreferences>) => void;
+  updateLastAlteration: (phone: string, order: Order) => void;
   updateProfileFromMeasurements: (
     customerName: string,
     customerPhone: string,
@@ -163,6 +213,8 @@ export const useCustomerStore = create<CustomerStore>()(
           bodyMeasurements: data.bodyMeasurements || {},
           lastMeasurementDate: data.lastMeasurementDate || todayStr(),
           orderCount: data.orderCount || 1,
+          preferences: data.preferences || {},
+          lastAlteration: data.lastAlteration || undefined,
           createdAt: now,
           updatedAt: now,
         };
@@ -176,6 +228,45 @@ export const useCustomerStore = create<CustomerStore>()(
           profiles: state.profiles.map(p =>
             p.id === id ? { ...p, ...data, updatedAt: now } : p
           ),
+        }));
+      },
+
+      updatePreferences: (id: string, preferences: Partial<AlterationPreferences>) => {
+        const now = new Date().toISOString();
+        set(state => ({
+          profiles: state.profiles.map(p => {
+            if (p.id !== id) return p;
+            return {
+              ...p,
+              preferences: { ...p.preferences, ...preferences },
+              updatedAt: now,
+            };
+          }),
+        }));
+      },
+
+      updateLastAlteration: (phone: string, order: Order) => {
+        const now = new Date().toISOString();
+        const alterationSummary = order.alterationItems
+          .map(item => `${item.name} x${item.quantity}`)
+          .join('、');
+        const lastAlteration: LastAlterationRecord = {
+          orderId: order.id,
+          orderNo: order.orderNo,
+          clothingCategory: order.clothingCategory,
+          alterationSummary: alterationSummary || order.requirements,
+          date: order.createdAt ? order.createdAt.split('T')[0] : todayStr(),
+        };
+        set(state => ({
+          profiles: state.profiles.map(p => {
+            if (p.customerPhone !== phone.trim()) return p;
+            return {
+              ...p,
+              lastAlteration,
+              orderCount: p.orderCount + 1,
+              updatedAt: now,
+            };
+          }),
         }));
       },
 
@@ -217,7 +308,20 @@ export const useCustomerStore = create<CustomerStore>()(
     }),
     {
       name: 'customer-profiles-storage',
-      version: 1,
+      version: 2,
+      migrate: (persistedState: unknown, version: number) => {
+        let state = persistedState as Record<string, unknown>;
+        if (version < 2) {
+          if (Array.isArray(state.profiles)) {
+            state.profiles = state.profiles.map((profile: Record<string, unknown>) => ({
+              ...profile,
+              preferences: (profile as Record<string, unknown>).preferences || {},
+              lastAlteration: (profile as Record<string, unknown>).lastAlteration || undefined,
+            }));
+          }
+        }
+        return state;
+      },
     }
   )
 );

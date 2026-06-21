@@ -70,7 +70,7 @@ export default function OrderDetail() {
     isNew ? null : state.orders.find(o => o.id === id) || null
   );
   const { createOrder, updateOrder, deleteOrder, updateOrderStatus, markNotified, confirmPickup } = useOrderStore();
-  const { updateProfileFromMeasurements, getProfileByPhoneAndName } = useCustomerStore();
+  const { updateProfileFromMeasurements, getProfileByPhoneAndName, updateLastAlteration } = useCustomerStore();
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [saved, setSaved] = useState(false);
@@ -219,6 +219,7 @@ export default function OrderDetail() {
         defectDescription: formData.defectDescription,
         defectConfirmed: formData.defectConfirmed,
       });
+      updateLastAlteration(formData.customerPhone, newOrder);
       setSaved(true);
       setTimeout(() => navigate(`/orders/${newOrder.id}`), 500);
     } else if (currentOrder) {

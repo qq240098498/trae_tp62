@@ -147,6 +147,36 @@ export const BODY_MEASUREMENT_KEYS: { key: keyof BodyMeasurements; label: string
   { key: 'sleeveLength', label: '袖长', unit: 'cm' },
 ];
 
+export type FitPreference = 'slim' | 'regular' | 'loose';
+export type HemPreference = 'original' | 'regular' | 'cuffed';
+
+export const FIT_PREFERENCE_LABELS: Record<FitPreference, string> = {
+  slim: '修身',
+  regular: '标准',
+  loose: '宽松',
+};
+
+export const HEM_PREFERENCE_LABELS: Record<HemPreference, string> = {
+  original: '保留原边',
+  regular: '普通改短',
+  cuffed: '翻边',
+};
+
+export interface AlterationPreferences {
+  fitPreference?: FitPreference;
+  hemPreference?: HemPreference;
+  keepOriginalHem?: boolean;
+  notes?: string;
+}
+
+export interface LastAlterationRecord {
+  orderId: string;
+  orderNo: string;
+  clothingCategory: string;
+  alterationSummary: string;
+  date: string;
+}
+
 export interface CustomerProfile {
   id: string;
   customerName: string;
@@ -154,6 +184,8 @@ export interface CustomerProfile {
   bodyMeasurements: BodyMeasurements;
   lastMeasurementDate: string;
   orderCount: number;
+  preferences: AlterationPreferences;
+  lastAlteration?: LastAlterationRecord;
   createdAt: string;
   updatedAt: string;
 }

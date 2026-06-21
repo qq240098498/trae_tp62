@@ -1,10 +1,11 @@
 import { useEffect, useMemo } from 'react';
-import { User, Phone, CalendarDays, History, UserCheck, Zap, Clock, Check } from 'lucide-react';
+import { User, Phone, CalendarDays, History, UserCheck, Zap, Clock, Check, Heart, Scissors, ArrowRight } from 'lucide-react';
 import { daysLater, formatDate } from '@/utils/helpers';
 import { useCustomerStore } from '@/store/customerStore';
 import { useOrderStore } from '@/store/orderStore';
+import { Link } from 'react-router-dom';
 import type { CustomerProfile } from '@/types';
-import { BODY_MEASUREMENT_KEYS, URGENT_LEVEL_CONFIGS, URGENT_REASON_OPTIONS } from '@/types';
+import { BODY_MEASUREMENT_KEYS, URGENT_LEVEL_CONFIGS, URGENT_REASON_OPTIONS, FIT_PREFERENCE_LABELS, HEM_PREFERENCE_LABELS } from '@/types';
 
 interface CustomerInfo {
   customerName: string;
@@ -230,41 +231,120 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
       )}
 
       {existingProfile && (
-        <div className="mt-5 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
-          <div className="flex items-start gap-3">
-            <div className="p-2 bg-green-100 rounded-lg shrink-0">
-              <History className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold text-green-800">
-                  老客户档案
-                </span>
-                <span className="text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                  第 {existingProfile.orderCount + 1} 次下单
-                </span>
+        <div className="mt-5 space-y-4">
+          <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-green-100 rounded-lg shrink-0">
+                <History className="w-5 h-5 text-green-600" />
               </div>
-              <p className="text-sm text-green-700 mb-2">
-                客户 <strong>{existingProfile.customerName}</strong>，上次测量：{formatDate(existingProfile.lastMeasurementDate)}
-              </p>
-              {hasMeasurementData && filledMeasurements.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {filledMeasurements.map(k => (
-                    <span
-                      key={k.key}
-                      className="inline-flex items-center gap-1 text-xs bg-white border border-green-200 text-green-700 px-2 py-1 rounded-md"
-                    >
-                      <span className="font-medium">{k.label}:</span>
-                      <span>{existingProfile.bodyMeasurements[k.key]}{k.unit}</span>
-                    </span>
-                  ))}
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-semibold text-green-800">
+                    老客户档案
+                  </span>
+                  <span className="text-xs text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
+                    第 {existingProfile.orderCount + 1} 次下单
+                  </span>
                 </div>
-              )}
-              {!hasMeasurementData && (
-                <p className="text-sm text-green-600 italic">暂无历史量体数据</p>
-              )}
+                <p className="text-sm text-green-700 mb-2">
+                  客户 <strong>{existingProfile.customerName}</strong>，上次测量：{formatDate(existingProfile.lastMeasurementDate)}
+                </p>
+                {hasMeasurementData && filledMeasurements.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {filledMeasurements.map(k => (
+                      <span
+                        key={k.key}
+                        className="inline-flex items-center gap-1 text-xs bg-white border border-green-200 text-green-700 px-2 py-1 rounded-md"
+                      >
+                        <span className="font-medium">{k.label}:</span>
+                        <span>{existingProfile.bodyMeasurements[k.key]}{k.unit}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {!hasMeasurementData && (
+                  <p className="text-sm text-green-600 italic">暂无历史量体数据</p>
+                )}
+                <div className="mt-3 pt-3 border-t border-green-200">
+                  <Link
+                    to={`/customers/${existingProfile.id}`}
+                    className="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-700 font-medium"
+                  >
+                    查看完整档案
+                    <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
+
+          {(existingProfile.preferences.fitPreference || existingProfile.preferences.hemPreference || existingProfile.preferences.keepOriginalHem || existingProfile.preferences.notes) && (
+            <div className="p-4 bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-rose-100 rounded-lg shrink-0">
+                  <Heart className="w-5 h-5 text-rose-500" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold text-rose-800">
+                      改衣风格偏好
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {existingProfile.preferences.fitPreference && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-white border border-rose-200 text-rose-700 px-2 py-1 rounded-md">
+                        版型：{FIT_PREFERENCE_LABELS[existingProfile.preferences.fitPreference]}
+                      </span>
+                    )}
+                    {existingProfile.preferences.hemPreference && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-white border border-rose-200 text-rose-700 px-2 py-1 rounded-md">
+                        <Scissors className="w-3 h-3" />
+                        {HEM_PREFERENCE_LABELS[existingProfile.preferences.hemPreference]}
+                      </span>
+                    )}
+                    {existingProfile.preferences.keepOriginalHem && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-rose-100 text-rose-700 px-2 py-1 rounded-md font-medium">
+                        保留原边
+                      </span>
+                    )}
+                  </div>
+                  {existingProfile.preferences.notes && (
+                    <p className="text-xs text-rose-600 bg-rose-50/50 p-2 rounded-lg">
+                      💡 {existingProfile.preferences.notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {existingProfile.lastAlteration && (
+            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg shrink-0">
+                  <Clock className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-amber-800">
+                      上次修改记录
+                    </span>
+                    <span className="text-xs text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                      {formatDate(existingProfile.lastAlteration.date)}
+                    </span>
+                  </div>
+                  <div className="text-sm text-amber-700">
+                    <span className="font-medium">{existingProfile.lastAlteration.clothingCategory}</span>
+                    <span className="mx-1">·</span>
+                    <span>{existingProfile.lastAlteration.alterationSummary}</span>
+                  </div>
+                  <div className="text-xs text-amber-500 mt-1">
+                    订单号：{existingProfile.lastAlteration.orderNo}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

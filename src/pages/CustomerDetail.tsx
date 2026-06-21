@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Save, ArrowLeft, Trash2, User, Phone, Ruler, Calendar, FileText, Plus } from 'lucide-react';
+import { Save, ArrowLeft, Trash2, User, Phone, Ruler, Calendar, FileText, Plus, Heart, Scissors, Clock } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import PageContent from '@/components/PageContent';
 import { useCustomerStore } from '@/store/customerStore';
-import type { BodyMeasurements } from '@/types';
-import { BODY_MEASUREMENT_KEYS } from '@/types';
+import type { BodyMeasurements, FitPreference, HemPreference, AlterationPreferences } from '@/types';
+import { BODY_MEASUREMENT_KEYS, FIT_PREFERENCE_LABELS, HEM_PREFERENCE_LABELS } from '@/types';
 import { formatDate, todayStr } from '@/utils/helpers';
 
 const emptyBody: BodyMeasurements = {
@@ -15,6 +15,13 @@ const emptyBody: BodyMeasurements = {
   hips: undefined,
   clothingLength: undefined,
   sleeveLength: undefined,
+};
+
+const emptyPreferences: AlterationPreferences = {
+  fitPreference: undefined,
+  hemPreference: undefined,
+  keepOriginalHem: undefined,
+  notes: '',
 };
 
 export default function CustomerDetail() {
@@ -33,6 +40,7 @@ export default function CustomerDetail() {
     bodyMeasurements: { ...emptyBody },
     lastMeasurementDate: todayStr(),
     orderCount: 0,
+    preferences: { ...emptyPreferences },
   });
   const [saved, setSaved] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -51,6 +59,7 @@ export default function CustomerDetail() {
         bodyMeasurements: { ...emptyBody, ...storeProfile.bodyMeasurements },
         lastMeasurementDate: storeProfile.lastMeasurementDate,
         orderCount: storeProfile.orderCount,
+        preferences: { ...emptyPreferences, ...storeProfile.preferences },
       });
       setInitialized(true);
     }
@@ -89,6 +98,13 @@ export default function CustomerDetail() {
     }));
   };
 
+  const handlePreferenceChange = (key: keyof AlterationPreferences, value: string | boolean | undefined) => {
+    setFormData(prev => ({
+      ...prev,
+      preferences: { ...prev.preferences, [key]: value },
+    }));
+  };
+
   const handleSave = () => {
     if (!formData.customerName.trim()) {
       alert('请填写客户姓名');
@@ -108,6 +124,7 @@ export default function CustomerDetail() {
         bodyMeasurements: formData.bodyMeasurements,
         lastMeasurementDate: hasAnyMeasurement ? formData.lastMeasurementDate : '',
         orderCount: 0,
+        preferences: formData.preferences,
       });
       setSaved(true);
       setTimeout(() => navigate(`/customers/${newProfile.id}`), 500);
@@ -117,6 +134,7 @@ export default function CustomerDetail() {
         customerPhone: formData.customerPhone.trim(),
         bodyMeasurements: formData.bodyMeasurements,
         lastMeasurementDate: hasAnyMeasurement ? (formData.lastMeasurementDate || todayStr()) : '',
+        preferences: formData.preferences,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
@@ -352,6 +370,143 @@ export default function CustomerDetail() {
                 </div>
               </div>
             </div>
+
+            <div className="card p-6">
+              <h2 className="section-title">
+                <Heart className="w-5 h-5 text-gold-500" />
+                改衣风格偏好
+              </h2>
+              <p className="text-sm text-coffee-500 mb-5">
+                记录顾客的改衣习惯偏好，下次收件时自动提示，提供个性化服务
+              </p>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="input-label mb-3">版型偏好</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(Object.keys(FIT_PREFERENCE_LABELS) as FitPreference[]).map(key => {
+                      const isActive = formData.preferences.fitPreference === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => handlePreferenceChange(
+                            'fitPreference',
+                            isActive ? undefined : key
+                          )}
+                          className={`p-4 rounded-xl border-2 text-center transition-all ${
+                            isActive
+                              ? 'border-gold-400 bg-gold-50 shadow-sm'
+                              : 'border-coffee-200 bg-white hover:border-coffee-300'
+                          }`}
+                        >
+                          <div className={`text-base font-semibold mb-1 ${
+                            isActive ? 'text-gold-700' : 'text-coffee-700'
+                          }`}>
+                            {FIT_PREFERENCE_LABELS[key]}
+                          </div>
+                          <div className={`text-xs ${
+                            isActive ? 'text-gold-500' : 'text-coffee-400'
+                          }`}>
+                            {key === 'slim' ? '贴身利落' : key === 'regular' ? '舒适标准' : '宽松休闲'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="input-label mb-3">裤脚/下摆处理偏好</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {(Object.keys(HEM_PREFERENCE_LABELS) as HemPreference[]).map(key => {
+                      const isActive = formData.preferences.hemPreference === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => handlePreferenceChange(
+                            'hemPreference',
+                            isActive ? undefined : key
+                          )}
+                          className={`p-4 rounded-xl border-2 text-center transition-all ${
+                            isActive
+                              ? 'border-gold-400 bg-gold-50 shadow-sm'
+                              : 'border-coffee-200 bg-white hover:border-coffee-300'
+                          }`}
+                        >
+                          <Scissors className={`w-5 h-5 mx-auto mb-1.5 ${
+                            isActive ? 'text-gold-500' : 'text-coffee-400'
+                          }`} />
+                          <div className={`text-sm font-semibold ${
+                            isActive ? 'text-gold-700' : 'text-coffee-700'
+                          }`}>
+                            {HEM_PREFERENCE_LABELS[key]}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-coffee-50 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="keepOriginalHem"
+                    checked={formData.preferences.keepOriginalHem || false}
+                    onChange={e => handlePreferenceChange('keepOriginalHem', e.target.checked)}
+                    className="w-5 h-5 rounded border-coffee-300 text-gold-500 focus:ring-gold-400"
+                  />
+                  <div>
+                    <label htmlFor="keepOriginalHem" className="text-sm font-medium text-coffee-700 cursor-pointer">
+                      优先保留原边
+                    </label>
+                    <p className="text-xs text-coffee-500 mt-0.5">
+                      改短裤脚时尽量保留原厂裤脚边
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="input-label">偏好备注</label>
+                  <textarea
+                    value={formData.preferences.notes || ''}
+                    onChange={e => handlePreferenceChange('notes', e.target.value)}
+                    placeholder="记录顾客的特殊偏好、注意事项等，例如：对纽扣过敏、喜欢特定线色等"
+                    rows={3}
+                    className="input-field resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {!isNew && storeProfile?.lastAlteration && (
+              <div className="card p-6">
+                <h2 className="section-title">
+                  <Clock className="w-5 h-5 text-gold-500" />
+                  上次修改记录
+                </h2>
+                <div className="mt-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-coffee-800">
+                        {storeProfile.lastAlteration.clothingCategory}
+                      </div>
+                      <div className="text-sm text-coffee-500">
+                        订单号：{storeProfile.lastAlteration.orderNo}
+                      </div>
+                    </div>
+                    <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
+                      {formatDate(storeProfile.lastAlteration.date)}
+                    </span>
+                  </div>
+                  <div className="text-sm text-coffee-700">
+                    <span className="font-medium text-amber-700">修改内容：</span>
+                    {storeProfile.lastAlteration.alterationSummary}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-6">
