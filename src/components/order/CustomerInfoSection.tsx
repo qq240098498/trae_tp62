@@ -1,16 +1,16 @@
 import { useEffect, useMemo } from 'react';
-import { User, Phone, CalendarDays, History, UserCheck, Zap, AlertTriangle } from 'lucide-react';
+import { User, Phone, CalendarDays, History, UserCheck, Zap, Clock, Check } from 'lucide-react';
 import { daysLater, formatDate } from '@/utils/helpers';
 import { useCustomerStore } from '@/store/customerStore';
-import type { CustomerProfile, UrgentReason } from '@/types';
-import { BODY_MEASUREMENT_KEYS, URGENT_REASON_OPTIONS } from '@/types';
+import { useOrderStore } from '@/store/orderStore';
+import type { CustomerProfile } from '@/types';
+import { BODY_MEASUREMENT_KEYS, URGENT_LEVEL_CONFIGS, URGENT_REASON_OPTIONS } from '@/types';
 
 interface CustomerInfo {
   customerName: string;
   customerPhone: string;
   pickupDate: string;
-  isUrgent?: boolean;
-  urgentReason?: UrgentReason;
+  urgentReason?: string;
 }
 
 interface Props {
@@ -21,6 +21,7 @@ interface Props {
 
 export default function CustomerInfoSection({ data, onChange, onProfileFound }: Props) {
   const { getProfileByPhone } = useCustomerStore();
+  const { calculateUrgentByDate } = useOrderStore();
   const existingProfile = getProfileByPhone(data.customerPhone);
 
   useEffect(() => {
@@ -29,21 +30,19 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
     }
   }, [existingProfile, onProfileFound]);
 
-  const handleChange = (key: keyof CustomerInfo, value: string | boolean) => {
-    const newData = { ...data, [key]: value };
-    if (key === 'isUrgent' && !value) {
-      newData.urgentReason = '';
-    }
-    if (key === 'urgentReason') {
-      newData.isUrgent = !!value;
-    }
-    onChange(newData);
+  const handleChange = (key: keyof CustomerInfo, value: string) => {
+    onChange({ ...data, [key]: value });
   };
 
-  const urgentRateInfo = useMemo(() => {
-    if (!data.isUrgent || !data.urgentReason) return null;
-    return URGENT_REASON_OPTIONS.find(o => o.value === data.urgentReason);
-  }, [data.isUrgent, data.urgentReason]);
+  const urgentInfo = useMemo(() => {
+    if (!data.pickupDate) return null;
+    return calculateUrgentByDate(data.pickupDate, 100);
+  }, [data.pickupDate, calculateUrgentByDate]);
+
+  const currentLevelConfig = useMemo(() => {
+    if (!urgentInfo) return null;
+    return URGENT_LEVEL_CONFIGS.find(c => c.level === urgentInfo.level);
+  }, [urgentInfo]);
 
   const hasMeasurementData = existingProfile &&
     Object.values(existingProfile.bodyMeasurements).some(v => v !== undefined && v > 0);
@@ -111,78 +110,108 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
         </div>
       </div>
 
-      <div className="mt-5 pt-5 border-t border-coffee-100">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Zap className={`w-5 h-5 ${data.isUrgent ? 'text-red-500' : 'text-coffee-400'}`} />
-            <span className="font-semibold text-coffee-700">急件通道</span>
-            {data.isUrgent && (
+      {urgentInfo && (
+        <div className="mt-5 pt-5 border-t border-coffee-100">
+          <div className="flex items-center gap-2 mb-4">
+            <Zap className={`w-5 h-5 ${urgentInfo.isUrgent ? 'text-red-500' : 'text-coffee-400'}`} />
+            <span className="font-semibold text-coffee-700">加急等级</span>
+            {urgentInfo.isUrgent && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
-                <AlertTriangle className="w-3 h-3" />
-                已启用加急
+                <Clock className="w-3 h-3" />
+                {currentLevelConfig?.label}
               </span>
             )}
           </div>
-          <label className="inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={!!data.isUrgent}
-              onChange={e => handleChange('isUrgent', e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="relative w-11 h-6 bg-coffee-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500" />
-          </label>
-        </div>
 
-        {data.isUrgent && (
-          <div className="space-y-4 animate-slide-up">
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <div className="grid grid-cols-5 gap-2 mb-4">
+            {URGENT_LEVEL_CONFIGS.map(config => {
+              const isActive = urgentInfo.level === config.level;
+              const isUrgent = config.level !== 'normal';
+              return (
+                <div
+                  key={config.level}
+                  className={`relative p-3 rounded-xl border-2 text-center transition-all ${
+                    isActive
+                      ? isUrgent
+                        ? 'border-red-500 bg-red-50 shadow-md'
+                        : 'border-coffee-500 bg-coffee-50 shadow-md'
+                      : 'border-coffee-200 bg-white'
+                  }`}
+                >
+                  {isActive && (
+                    <div className={`absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center ${
+                      isUrgent ? 'bg-red-500' : 'bg-coffee-500'
+                    }`}>
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                  <div className={`text-sm font-semibold mb-1 ${
+                    isActive
+                      ? isUrgent ? 'text-red-700' : 'text-coffee-700'
+                      : 'text-coffee-600'
+                  }`}>
+                    {config.label}
+                  </div>
+                  <div className={`text-xs ${
+                    isActive
+                      ? isUrgent ? 'text-red-600' : 'text-coffee-600'
+                      : 'text-coffee-400'
+                  }`}>
+                    {config.rate > 0 ? `+${Math.round(config.rate * 100)}%` : '无加急费'}
+                  </div>
+                  <div className={`text-[10px] mt-1 ${
+                    isActive
+                      ? isUrgent ? 'text-red-500' : 'text-coffee-500'
+                      : 'text-coffee-400'
+                  }`}>
+                    {config.description}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {urgentInfo.isUrgent && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-4">
               <p className="text-sm text-amber-800">
-                <strong>加急说明：</strong>启用急件通道后，订单将自动插队优先处理，并根据加急原因加收 30%-50% 的加急费。
+                <strong>加急说明：</strong>
+                取件日期距今天 <span className="font-bold text-amber-900">{urgentInfo.days}</span> 天，
+                属于 <span className="font-bold text-amber-900">{currentLevelConfig?.label}</span>，
+                将自动加收 <span className="font-bold text-amber-900">+{Math.round(urgentInfo.rate * 100)}%</span> 加急费。
+                订单将自动插队优先处理，排工期自动前移。
               </p>
             </div>
+          )}
 
-            <div>
-              <label className="input-label">
-                <span className="text-red-500">*</span> 加急原因
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                {URGENT_REASON_OPTIONS.map(option => {
-                  const isActive = data.urgentReason === option.value;
-                  const btnClass = isActive
-                    ? 'border-red-500 bg-red-50 text-red-700 shadow-md'
-                    : 'border-coffee-200 bg-white text-coffee-600 hover:border-coffee-300 hover:bg-coffee-50';
-                  const rateClass = isActive ? 'text-red-600' : 'text-coffee-400';
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleChange('urgentReason', option.value)}
-                      className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${btnClass}`}
-                    >
-                      <div className="mb-1">{option.label}</div>
-                      <div className={`text-xs ${rateClass}`}>
-                        +{Math.round(option.rate * 100)}%
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+          <div>
+            <label className="input-label">
+              加急原因（选填）
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {URGENT_REASON_OPTIONS.map(option => {
+                const isActive = data.urgentReason === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleChange('urgentReason', isActive ? '' : option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      isActive
+                        ? 'bg-red-100 text-red-700 border border-red-300'
+                        : 'bg-coffee-50 text-coffee-600 border border-coffee-200 hover:bg-coffee-100'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
-
-            {urgentRateInfo && (
-              <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-xl">
-                <span className="text-sm text-red-700">
-                  当前加急费率：<strong className="font-semibold">+{Math.round(urgentRateInfo.rate * 100)}%</strong>
-                </span>
-                <span className="text-xs text-red-600">
-                  ({urgentRateInfo.label})
-                </span>
-              </div>
-            )}
+            <p className="text-xs text-coffee-400 mt-2">
+              注：加急原因仅作备注，不影响加急费用。加急费用由取件日期自动计算。
+            </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {existingProfile && (
         <div className="mt-5 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">

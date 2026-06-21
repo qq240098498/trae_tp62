@@ -24,7 +24,40 @@ export interface AlterationItem {
   subtotal: number;
 }
 
-export type UrgentReason = 'next_day' | 'wedding' | 'business' | 'party' | 'other' | '';
+export type UrgentLevel = 'normal' | 'urgent_3d' | 'urgent_2d' | 'urgent_1d' | 'urgent_same_day';
+
+export interface UrgentLevelConfig {
+  level: UrgentLevel;
+  label: string;
+  days: number;
+  rate: number;
+  description: string;
+}
+
+export const URGENT_LEVEL_CONFIGS: UrgentLevelConfig[] = [
+  { level: 'normal', label: '普通', days: 7, rate: 0, description: '7天以上取件' },
+  { level: 'urgent_3d', label: '3天加急', days: 3, rate: 0.3, description: '3天内取件' },
+  { level: 'urgent_2d', label: '2天加急', days: 2, rate: 0.4, description: '2天内取件' },
+  { level: 'urgent_1d', label: '次日取件', days: 1, rate: 0.5, description: '次日取件' },
+  { level: 'urgent_same_day', label: '当日取件', days: 0, rate: 0.6, description: '当天取件' },
+];
+
+export const URGENT_REASON_LABELS: Record<string, string> = {
+  '': '无',
+  'next_day': '第二天要穿',
+  'wedding': '婚礼前',
+  'business': '商务会议',
+  'party': '宴会活动',
+  'other': '其他紧急',
+};
+
+export const URGENT_REASON_OPTIONS: { value: string; label: string }[] = [
+  { value: 'next_day', label: '第二天要穿' },
+  { value: 'wedding', label: '婚礼前' },
+  { value: 'business', label: '商务会议' },
+  { value: 'party', label: '宴会活动' },
+  { value: 'other', label: '其他紧急' },
+];
 
 export interface Order {
   id: string;
@@ -41,9 +74,11 @@ export interface Order {
   totalPrice: number;
   basePrice: number;
   isUrgent: boolean;
-  urgentReason: UrgentReason;
+  urgentLevel: UrgentLevel;
+  urgentDays: number;
   urgentFeeRate: number;
   urgentFee: number;
+  urgentReason: string;
   measurements: Measurement[];
   alterationItems: AlterationItem[];
   defectDescription: string;
@@ -93,23 +128,6 @@ export const MEASUREMENT_PARTS = [
   { name: '裤长', unit: 'cm' },
   { name: '领围', unit: 'cm' },
 ];
-
-export const URGENT_REASON_OPTIONS: { value: UrgentReason; label: string; rate: number }[] = [
-  { value: 'next_day', label: '第二天要穿', rate: 0.5 },
-  { value: 'wedding', label: '婚礼前', rate: 0.5 },
-  { value: 'business', label: '商务会议', rate: 0.4 },
-  { value: 'party', label: '宴会活动', rate: 0.3 },
-  { value: 'other', label: '其他紧急', rate: 0.3 },
-];
-
-export const URGENT_REASON_LABELS: Record<UrgentReason, string> = {
-  '': '普通',
-  'next_day': '第二天要穿',
-  'wedding': '婚礼前',
-  'business': '商务会议',
-  'party': '宴会活动',
-  'other': '其他紧急',
-};
 
 export interface BodyMeasurements {
   shoulderWidth?: number;

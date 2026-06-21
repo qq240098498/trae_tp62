@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { Phone, Calendar, Ruler, ChevronRight, Zap } from 'lucide-react';
+import { Phone, Calendar, Ruler, ChevronRight, Zap, Clock } from 'lucide-react';
 import type { Order } from '@/types';
 import StatusBadge from './StatusBadge';
 import { formatDate, formatCurrency } from '@/utils/helpers';
-import { URGENT_REASON_LABELS } from '@/types';
+import { URGENT_LEVEL_CONFIGS, URGENT_REASON_LABELS } from '@/types';
 
 interface OrderCardProps {
   order: Order;
@@ -11,6 +11,7 @@ interface OrderCardProps {
 
 export default function OrderCard({ order }: OrderCardProps) {
   const itemsSummary = order.alterationItems.map(i => i.name).join('、') || '暂无修改项目';
+  const levelConfig = URGENT_LEVEL_CONFIGS.find(c => c.level === order.urgentLevel);
 
   return (
     <Link
@@ -19,10 +20,10 @@ export default function OrderCard({ order }: OrderCardProps) {
         order.isUrgent ? 'border-2 border-red-300 bg-gradient-to-br from-white to-red-50' : ''
       }`}
     >
-      {order.isUrgent && (
+      {order.isUrgent && levelConfig && (
         <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full shadow-md">
           <Zap className="w-3 h-3" />
-          急件
+          {levelConfig.label}
         </div>
       )}
 
@@ -35,10 +36,18 @@ export default function OrderCard({ order }: OrderCardProps) {
             <StatusBadge status={order.status} />
           </div>
           <p className="text-sm text-coffee-500">#{order.orderNo}</p>
-          {order.isUrgent && order.urgentReason && (
-            <p className="text-xs text-red-600 mt-1 font-medium">
-              ⚡ {URGENT_REASON_LABELS[order.urgentReason]} · +{Math.round((order.urgentFeeRate || 0) * 100)}%
-            </p>
+          {order.isUrgent && (
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {order.urgentDays}天内取件 · +{Math.round((order.urgentFeeRate || 0) * 100)}%
+              </span>
+              {order.urgentReason && (
+                <span className="text-xs text-coffee-400">
+                  ({URGENT_REASON_LABELS[order.urgentReason]})
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>

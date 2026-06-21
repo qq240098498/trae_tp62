@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Save, ArrowLeft, Trash2, Zap, AlertTriangle } from 'lucide-react';
+import { Save, ArrowLeft, Trash2, Zap, Clock } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import PageContent from '@/components/PageContent';
 import CustomerInfoSection from '@/components/order/CustomerInfoSection';
@@ -12,8 +12,8 @@ import OrderStatusSection from '@/components/order/OrderStatusSection';
 import { useOrderStore } from '@/store/orderStore';
 import { useCustomerStore, bodyToMeasurements } from '@/store/customerStore';
 import { daysLater } from '@/utils/helpers';
-import type { OrderStatus, Measurement, AlterationItem, CustomerProfile, UrgentReason } from '@/types';
-import { URGENT_REASON_LABELS } from '@/types';
+import type { OrderStatus, Measurement, AlterationItem, CustomerProfile, UrgentLevel } from '@/types';
+import { URGENT_REASON_LABELS, URGENT_LEVEL_CONFIGS } from '@/types';
 
 interface FormData {
   customerName: string;
@@ -29,9 +29,11 @@ interface FormData {
   totalPrice: number;
   basePrice: number;
   isUrgent: boolean;
-  urgentReason: UrgentReason;
+  urgentLevel: UrgentLevel;
+  urgentDays: number;
   urgentFeeRate: number;
   urgentFee: number;
+  urgentReason: string;
   defectDescription: string;
   defectConfirmed: boolean;
 }
@@ -50,9 +52,11 @@ const initialFormData: FormData = {
   totalPrice: 0,
   basePrice: 0,
   isUrgent: false,
-  urgentReason: '',
+  urgentLevel: 'normal',
+  urgentDays: 7,
   urgentFeeRate: 0,
   urgentFee: 0,
+  urgentReason: '',
   defectDescription: '',
   defectConfirmed: false,
 };
@@ -94,9 +98,11 @@ export default function OrderDetail() {
         totalPrice: storeOrder.totalPrice,
         basePrice: storeOrder.basePrice ?? storeOrder.totalPrice,
         isUrgent: storeOrder.isUrgent ?? false,
-        urgentReason: (storeOrder.urgentReason ?? '') as UrgentReason,
+        urgentLevel: (storeOrder.urgentLevel ?? 'normal') as UrgentLevel,
+        urgentDays: storeOrder.urgentDays ?? 7,
         urgentFeeRate: storeOrder.urgentFeeRate ?? 0,
         urgentFee: storeOrder.urgentFee ?? 0,
+        urgentReason: storeOrder.urgentReason ?? '',
         defectDescription: storeOrder.defectDescription,
         defectConfirmed: storeOrder.defectConfirmed,
       });
@@ -120,22 +126,27 @@ export default function OrderDetail() {
     setFormData(prev => ({ ...prev, ...data }));
   };
 
-  const { calculateUrgentFee } = useOrderStore();
+  const { calculateUrgentByDate } = useOrderStore();
 
   useEffect(() => {
     const basePrice = formData.alterationItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const { fee: urgentFee, rate: urgentFeeRate } = formData.isUrgent && formData.urgentReason
-      ? calculateUrgentFee(basePrice, formData.urgentReason)
-      : { fee: 0, rate: 0 };
+    const { level: urgentLevel, days: urgentDays, rate: urgentFeeRate, fee: urgentFee, isUrgent } =
+      calculateUrgentByDate(formData.pickupDate, basePrice);
     const totalPrice = basePrice + urgentFee;
 
     setFormData(prev => {
-      if (prev.basePrice === basePrice && prev.urgentFee === urgentFee && prev.totalPrice === totalPrice && prev.urgentFeeRate === urgentFeeRate) {
+      if (prev.basePrice === basePrice &&
+          prev.urgentFee === urgentFee &&
+          prev.totalPrice === totalPrice &&
+          prev.urgentFeeRate === urgentFeeRate &&
+          prev.urgentLevel === urgentLevel &&
+          prev.urgentDays === urgentDays &&
+          prev.isUrgent === isUrgent) {
         return prev;
       }
-      return { ...prev, basePrice, urgentFee, urgentFeeRate, totalPrice };
+      return { ...prev, basePrice, urgentLevel, urgentDays, urgentFeeRate, urgentFee, isUrgent, totalPrice };
     });
-  }, [formData.alterationItems, formData.isUrgent, formData.urgentReason, calculateUrgentFee]);
+  }, [formData.alterationItems, formData.pickupDate, calculateUrgentByDate]);
 
   const handleProfileFound = useCallback((profile: CustomerProfile) => {
     setCustomerProfile(profile);
@@ -201,10 +212,7 @@ export default function OrderDetail() {
         color: formData.color,
         requirements: formData.requirements,
         basePrice: formData.basePrice,
-        isUrgent: formData.isUrgent,
         urgentReason: formData.urgentReason,
-        urgentFeeRate: formData.urgentFeeRate,
-        urgentFee: formData.urgentFee,
         totalPrice: formData.totalPrice,
         measurements: formData.measurements,
         alterationItems: formData.alterationItems,
@@ -224,10 +232,7 @@ export default function OrderDetail() {
         color: formData.color,
         requirements: formData.requirements,
         basePrice: formData.basePrice,
-        isUrgent: formData.isUrgent,
         urgentReason: formData.urgentReason,
-        urgentFeeRate: formData.urgentFeeRate,
-        urgentFee: formData.urgentFee,
         totalPrice: formData.totalPrice,
         measurements: formData.measurements,
         alterationItems: formData.alterationItems,
@@ -320,7 +325,6 @@ export default function OrderDetail() {
                 customerName: formData.customerName,
                 customerPhone: formData.customerPhone,
                 pickupDate: formData.pickupDate,
-                isUrgent: formData.isUrgent,
                 urgentReason: formData.urgentReason,
               }}
               onChange={updateCustomerInfo}
@@ -378,15 +382,20 @@ export default function OrderDetail() {
                   <Zap className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                   <div>
                     <div className="font-semibold text-red-700 flex items-center gap-1">
-                      <AlertTriangle className="w-4 h-4" />
-                      急件订单
+                      <Clock className="w-4 h-4" />
+                      {URGENT_LEVEL_CONFIGS.find(c => c.level === formData.urgentLevel)?.label}
                     </div>
                     <div className="text-xs text-red-600 mt-1">
-                      原因：{URGENT_REASON_LABELS[formData.urgentReason]}
+                      距取件 {formData.urgentDays} 天
                     </div>
                     <div className="text-xs text-red-600">
                       加急费率：+{Math.round(formData.urgentFeeRate * 100)}%
                     </div>
+                    {formData.urgentReason && (
+                      <div className="text-xs text-red-500 mt-1">
+                        原因：{URGENT_REASON_LABELS[formData.urgentReason]}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -416,8 +425,10 @@ export default function OrderDetail() {
                 </div>
                 {formData.isUrgent && (
                   <div className="flex justify-between py-2 border-b border-coffee-100">
-                    <span className="text-coffee-500">加急状态</span>
-                    <span className="text-red-600 font-medium">已启用</span>
+                    <span className="text-coffee-500">加急等级</span>
+                    <span className="text-red-600 font-medium">
+                      {URGENT_LEVEL_CONFIGS.find(c => c.level === formData.urgentLevel)?.label}
+                    </span>
                   </div>
                 )}
               </div>

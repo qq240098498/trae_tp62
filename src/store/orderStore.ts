@@ -1,9 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Order, OrderStatus, PricingConfig, Measurement, AlterationItem, UrgentReason } from '@/types';
+import type { Order, OrderStatus, PricingConfig, Measurement, AlterationItem, UrgentLevel } from '@/types';
 import { mockOrders, mockPricingConfigs } from '@/data/mockData';
 import { generateId, generateOrderNo, todayStr } from '@/utils/helpers';
-import { URGENT_REASON_OPTIONS } from '@/types';
+import { URGENT_LEVEL_CONFIGS } from '@/types';
+
+const getDaysUntil = (dateStr: string): number => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  const diffMs = target.getTime() - today.getTime();
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+};
 
 interface OrderStore {
   orders: Order[];
@@ -20,8 +29,7 @@ interface OrderStore {
   getPriceByType: (type: string) => number;
   updatePricing: (id: string, price: number) => void;
   recalculateTotal: (items: AlterationItem[]) => number;
-  calculateUrgentFee: (basePrice: number, urgentReason: UrgentReason) => { fee: number; rate: number };
-  getUrgentRateByReason: (reason: UrgentReason) => number;
+  calculateUrgentByDate: (pickupDate: string, basePrice: number) => { level: UrgentLevel; days: number; rate: number; fee: number; isUrgent: boolean };
   sortOrdersByPriority: (orders: Order[]) => Order[];
 }
 
@@ -46,16 +54,23 @@ export const useOrderStore = create<OrderStore>()(
         );
       },
 
-      getUrgentRateByReason: (reason: UrgentReason) => {
-        if (!reason) return 0;
-        const option = URGENT_REASON_OPTIONS.find(o => o.value === reason);
-        return option?.rate || 0;
-      },
+      calculateUrgentByDate: (pickupDate: string, basePrice: number) => {
+        const days = getDaysUntil(pickupDate);
+        let level: UrgentLevel = 'normal';
+        let rate = 0;
+        let isUrgent = false;
 
-      calculateUrgentFee: (basePrice: number, urgentReason: UrgentReason) => {
-        const rate = get().getUrgentRateByReason(urgentReason);
+        for (const config of URGENT_LEVEL_CONFIGS) {
+          if (days <= config.days) {
+            level = config.level;
+            rate = config.rate;
+            isUrgent = config.level !== 'normal';
+            break;
+          }
+        }
+
         const fee = Math.round(basePrice * rate);
-        return { fee, rate };
+        return { level, days, rate, fee, isUrgent };
       },
 
       sortOrdersByPriority: (orders: Order[]) => {
@@ -73,12 +88,10 @@ export const useOrderStore = create<OrderStore>()(
 
       createOrder: (data: Partial<Order>) => {
         const now = new Date().toISOString();
-        const isUrgent = !!data.isUrgent && !!data.urgentReason;
         const basePrice = data.basePrice ?? data.totalPrice ?? 0;
-        const urgentReason = (data.urgentReason || '') as UrgentReason;
-        const { fee: urgentFee, rate: urgentFeeRate } = isUrgent
-          ? get().calculateUrgentFee(basePrice, urgentReason)
-          : { fee: 0, rate: 0 };
+        const pickupDate = data.pickupDate || todayStr();
+        const { level: urgentLevel, days: urgentDays, rate: urgentFeeRate, fee: urgentFee, isUrgent } =
+          get().calculateUrgentByDate(pickupDate, basePrice);
         const totalPrice = basePrice + urgentFee;
 
         const newOrder: Order = {
@@ -86,7 +99,7 @@ export const useOrderStore = create<OrderStore>()(
           orderNo: generateOrderNo(),
           customerName: data.customerName || '',
           customerPhone: data.customerPhone || '',
-          pickupDate: data.pickupDate || todayStr(),
+          pickupDate,
           clothingCategory: data.clothingCategory || '',
           fabric: data.fabric || '',
           brand: data.brand || '',
@@ -95,9 +108,11 @@ export const useOrderStore = create<OrderStore>()(
           status: 'pending',
           basePrice,
           isUrgent,
-          urgentReason,
+          urgentLevel,
+          urgentDays,
           urgentFeeRate,
           urgentFee,
+          urgentReason: data.urgentReason || '',
           totalPrice,
           measurements: data.measurements || [],
           alterationItems: data.alterationItems || [],
@@ -119,19 +134,18 @@ export const useOrderStore = create<OrderStore>()(
         set(state => {
           const updatedOrders = state.orders.map(o => {
             if (o.id !== id) return o;
-            const isUrgent = !!(data.isUrgent ?? o.isUrgent) && !!((data.urgentReason || o.urgentReason));
             const basePrice = data.basePrice ?? o.basePrice ?? data.totalPrice ?? o.totalPrice ?? 0;
-            const urgentReason = (data.urgentReason || o.urgentReason || '') as UrgentReason;
-            const { fee: urgentFee, rate: urgentFeeRate } = isUrgent
-              ? get().calculateUrgentFee(basePrice, urgentReason)
-              : { fee: 0, rate: 0 };
+            const pickupDate = data.pickupDate || o.pickupDate || todayStr();
+            const { level: urgentLevel, days: urgentDays, rate: urgentFeeRate, fee: urgentFee, isUrgent } =
+              get().calculateUrgentByDate(pickupDate, basePrice);
             const totalPrice = basePrice + urgentFee;
             return {
               ...o,
               ...data,
               basePrice,
               isUrgent,
-              urgentReason,
+              urgentLevel,
+              urgentDays,
               urgentFeeRate,
               urgentFee,
               totalPrice,
@@ -208,7 +222,7 @@ export const useOrderStore = create<OrderStore>()(
     }),
     {
       name: 'tailor-shop-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState: unknown, version: number) => {
         let state = persistedState as Record<string, unknown>;
         if (version === 0) {
@@ -230,6 +244,29 @@ export const useOrderStore = create<OrderStore>()(
               urgentFeeRate: typeof order.urgentFeeRate === 'number' ? order.urgentFeeRate : 0,
               urgentFee: typeof order.urgentFee === 'number' ? order.urgentFee : 0,
             }));
+          }
+        }
+        if (version < 3) {
+          if (Array.isArray(state.orders)) {
+            state.orders = state.orders.map((order: Record<string, unknown>) => {
+              const pickupDate = (order.pickupDate as string) || todayStr();
+              const basePrice = (order.basePrice as number) || (order.totalPrice as number) || 0;
+              const days = getDaysUntil(pickupDate);
+              let urgentLevel = 'normal';
+              let urgentDays = days;
+              for (const config of URGENT_LEVEL_CONFIGS) {
+                if (days <= config.days) {
+                  urgentLevel = config.level;
+                  break;
+                }
+              }
+              return {
+                ...order,
+                urgentLevel,
+                urgentDays,
+                urgentReason: typeof order.urgentReason === 'string' ? order.urgentReason : '',
+              };
+            });
           }
         }
         return state;
