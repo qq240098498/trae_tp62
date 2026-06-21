@@ -10,7 +10,7 @@ import AlterationItemsSection from '@/components/order/AlterationItemsSection';
 import DefectSection from '@/components/order/DefectSection';
 import OrderStatusSection from '@/components/order/OrderStatusSection';
 import { useOrderStore } from '@/store/orderStore';
-import { useCustomerStore } from '@/store/customerStore';
+import { useCustomerStore, bodyToMeasurements } from '@/store/customerStore';
 import { daysLater } from '@/utils/helpers';
 import type { OrderStatus, Measurement, AlterationItem, CustomerProfile } from '@/types';
 
@@ -55,7 +55,7 @@ export default function OrderDetail() {
     isNew ? null : state.orders.find(o => o.id === id) || null
   );
   const { createOrder, updateOrder, deleteOrder, updateOrderStatus, markNotified, confirmPickup } = useOrderStore();
-  const { updateProfileFromMeasurements, getProfileByPhone } = useCustomerStore();
+  const { updateProfileFromMeasurements, getProfileByPhoneAndName } = useCustomerStore();
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [saved, setSaved] = useState(false);
@@ -84,7 +84,7 @@ export default function OrderDetail() {
         defectDescription: storeOrder.defectDescription,
         defectConfirmed: storeOrder.defectConfirmed,
       });
-      const profile = getProfileByPhone(storeOrder.customerPhone);
+      const profile = getProfileByPhoneAndName(storeOrder.customerPhone, storeOrder.customerName);
       if (profile) {
         setCustomerProfile(profile);
         if (!storeOrder.customerName && profile.customerName) {
@@ -93,7 +93,7 @@ export default function OrderDetail() {
       }
       setInitialized(true);
     }
-  }, [isNew, storeOrder, initialized, getProfileByPhone]);
+  }, [isNew, storeOrder, initialized, getProfileByPhoneAndName]);
 
   const currentOrder = useMemo(() => {
     if (isNew) return null;
@@ -111,21 +111,39 @@ export default function OrderDetail() {
     }
   }, [formData.customerName]);
 
+  const [autoImportedPhone, setAutoImportedPhone] = useState<string>('');
+
   useEffect(() => {
-    if (!formData.customerPhone) {
+    const phone = formData.customerPhone.trim();
+    const name = formData.customerName.trim();
+
+    if (!phone) {
       setCustomerProfile(null);
       return;
     }
-    const profile = getProfileByPhone(formData.customerPhone);
+
+    const profile = getProfileByPhoneAndName(phone, name);
     if (profile) {
       setCustomerProfile(profile);
-      if (profile.customerName && !formData.customerName) {
+
+      if (profile.customerName && !name) {
         setFormData(prev => ({ ...prev, customerName: profile.customerName }));
+      }
+
+      const hasMeasurements = formData.measurements.length > 0;
+      const hasProfileData = Object.values(profile.bodyMeasurements).some(v => v !== undefined);
+
+      if (!hasMeasurements && hasProfileData && autoImportedPhone !== phone) {
+        const imported = bodyToMeasurements(profile.bodyMeasurements);
+        if (imported.length > 0) {
+          setFormData(prev => ({ ...prev, measurements: imported }));
+          setAutoImportedPhone(phone);
+        }
       }
     } else {
       setCustomerProfile(null);
     }
-  }, [formData.customerPhone, formData.customerName, getProfileByPhone]);
+  }, [formData.customerPhone, formData.customerName, formData.measurements.length, getProfileByPhoneAndName, bodyToMeasurements, autoImportedPhone]);
 
   const handleSave = () => {
     if (!formData.customerName || !formData.customerPhone) {

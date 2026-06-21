@@ -102,6 +102,7 @@ interface CustomerStore {
   profiles: CustomerProfile[];
   getProfileByPhone: (phone: string) => CustomerProfile | undefined;
   getProfileByName: (name: string) => CustomerProfile | undefined;
+  getProfileByPhoneAndName: (phone: string, name: string) => CustomerProfile | undefined;
   searchProfiles: (keyword: string) => CustomerProfile[];
   createProfile: (data: Partial<CustomerProfile>) => CustomerProfile;
   updateProfile: (id: string, data: Partial<CustomerProfile>) => void;
@@ -124,6 +125,24 @@ export const useCustomerStore = create<CustomerStore>()(
 
       getProfileByName: (name: string) => {
         return get().profiles.find(p => p.customerName === name.trim());
+      },
+
+      getProfileByPhoneAndName: (phone: string, name: string) => {
+        const phoneTrimmed = phone.trim();
+        const nameTrimmed = name.trim();
+        const byPhone = get().profiles.find(p => p.customerPhone === phoneTrimmed);
+        if (byPhone) {
+          if (!nameTrimmed || byPhone.customerName === nameTrimmed) {
+            return byPhone;
+          }
+          return undefined;
+        }
+        if (nameTrimmed) {
+          return get().profiles.find(p =>
+            p.customerName === nameTrimmed
+          );
+        }
+        return undefined;
       },
 
       searchProfiles: (keyword: string) => {

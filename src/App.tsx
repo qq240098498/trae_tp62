@@ -4,6 +4,8 @@ import OrderList from "@/pages/OrderList";
 import OrderDetail from "@/pages/OrderDetail";
 import PickupPage from "@/pages/PickupPage";
 import PricingPage from "@/pages/PricingPage";
+import CustomerList from "@/pages/CustomerList";
+import CustomerDetail from "@/pages/CustomerDetail";
 
 export default function App() {
   return (
@@ -13,6 +15,9 @@ export default function App() {
           <Route path="/" element={<OrderList />} />
           <Route path="/orders/new" element={<OrderDetail />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/customers" element={<CustomerList />} />
+          <Route path="/customers/new" element={<CustomerDetail />} />
+          <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/pickup" element={<PickupPage />} />
           <Route path="/pricing" element={<PricingPage />} />
         </Routes>
