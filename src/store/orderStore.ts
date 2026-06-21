@@ -80,7 +80,12 @@ export const useOrderStore = create<OrderStore>()(
       },
 
       updateOrderStatus: (id: string, status: OrderStatus) => {
-        get().updateOrder(id, { status });
+        const now = new Date().toISOString();
+        set(state => ({
+          orders: state.orders.map(o =>
+            o.id === id ? { ...o, status, updatedAt: now } : o
+          ),
+        }));
       },
 
       deleteOrder: (id: string) => {
@@ -90,15 +95,27 @@ export const useOrderStore = create<OrderStore>()(
       },
 
       markNotified: (id: string) => {
-        get().updateOrder(id, { notified: true });
+        const now = new Date().toISOString();
+        set(state => ({
+          orders: state.orders.map(o =>
+            o.id === id ? { ...o, notified: true, updatedAt: now } : o
+          ),
+        }));
       },
 
       confirmPickup: (id: string) => {
-        get().updateOrder(id, {
-          pickedUp: true,
-          pickedUpAt: new Date().toISOString(),
-          status: 'completed',
-        });
+        const now = new Date().toISOString();
+        set(state => ({
+          orders: state.orders.map(o =>
+            o.id === id ? {
+              ...o,
+              pickedUp: true,
+              pickedUpAt: now,
+              status: 'completed',
+              updatedAt: now,
+            } : o
+          ),
+        }));
       },
 
       getPriceByType: (type: string) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Save, ArrowLeft, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -11,7 +11,7 @@ import DefectSection from '@/components/order/DefectSection';
 import OrderStatusSection from '@/components/order/OrderStatusSection';
 import { useOrderStore } from '@/store/orderStore';
 import { daysLater } from '@/utils/helpers';
-import type { Order, OrderStatus, Measurement, AlterationItem } from '@/types';
+import type { OrderStatus, Measurement, AlterationItem } from '@/types';
 
 interface FormData {
   customerName: string;
@@ -50,33 +50,45 @@ export default function OrderDetail() {
   const navigate = useNavigate();
   const isNew = id === 'new';
 
-  const { getOrderById, createOrder, updateOrder, deleteOrder, updateOrderStatus, markNotified, confirmPickup } = useOrderStore();
-
-  const existingOrder = !isNew ? getOrderById(id!) : undefined;
+  const storeOrder = useOrderStore(state =>
+    isNew ? null : state.orders.find(o => o.id === id) || null
+  );
+  const { createOrder, updateOrder, deleteOrder, updateOrderStatus, markNotified, confirmPickup } = useOrderStore();
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [order, setOrder] = useState<Order | null>(existingOrder || null);
   const [saved, setSaved] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (existingOrder) {
-      setFormData({
-        customerName: existingOrder.customerName,
-        customerPhone: existingOrder.customerPhone,
-        pickupDate: existingOrder.pickupDate,
-        clothingCategory: existingOrder.clothingCategory,
-        fabric: existingOrder.fabric,
-        brand: existingOrder.brand,
-        color: existingOrder.color,
-        requirements: existingOrder.requirements,
-        measurements: existingOrder.measurements,
-        alterationItems: existingOrder.alterationItems,
-        totalPrice: existingOrder.totalPrice,
-        defectDescription: existingOrder.defectDescription,
-        defectConfirmed: existingOrder.defectConfirmed,
-      });
+    if (initialized) return;
+    if (isNew) {
+      setInitialized(true);
+      return;
     }
-  }, [existingOrder]);
+    if (storeOrder) {
+      setFormData({
+        customerName: storeOrder.customerName,
+        customerPhone: storeOrder.customerPhone,
+        pickupDate: storeOrder.pickupDate,
+        clothingCategory: storeOrder.clothingCategory,
+        fabric: storeOrder.fabric,
+        brand: storeOrder.brand,
+        color: storeOrder.color,
+        requirements: storeOrder.requirements,
+        measurements: storeOrder.measurements,
+        alterationItems: storeOrder.alterationItems,
+        totalPrice: storeOrder.totalPrice,
+        defectDescription: storeOrder.defectDescription,
+        defectConfirmed: storeOrder.defectConfirmed,
+      });
+      setInitialized(true);
+    }
+  }, [isNew, storeOrder, initialized]);
+
+  const currentOrder = useMemo(() => {
+    if (isNew) return null;
+    return storeOrder;
+  }, [isNew, storeOrder]);
 
   const updateCustomerInfo = (data: Partial<FormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
@@ -106,8 +118,8 @@ export default function OrderDetail() {
       });
       setSaved(true);
       setTimeout(() => navigate(`/orders/${newOrder.id}`), 500);
-    } else if (order) {
-      updateOrder(order.id, {
+    } else if (currentOrder) {
+      updateOrder(currentOrder.id, {
         customerName: formData.customerName,
         customerPhone: formData.customerPhone,
         pickupDate: formData.pickupDate,
@@ -128,35 +140,42 @@ export default function OrderDetail() {
   };
 
   const handleDelete = () => {
-    if (!order) return;
-    if (confirm(`确定要删除订单 ${order.orderNo} 吗？此操作不可撤销。`)) {
-      deleteOrder(order.id);
+    if (!currentOrder) return;
+    if (confirm(`确定要删除订单 ${currentOrder.orderNo} 吗？此操作不可撤销。`)) {
+      deleteOrder(currentOrder.id);
       navigate('/');
     }
   };
 
   const handleStatusChange = (status: OrderStatus) => {
-    if (!order) return;
-    updateOrderStatus(order.id, status);
-    setOrder(getOrderById(order.id)!);
+    if (!currentOrder) return;
+    updateOrderStatus(currentOrder.id, status);
   };
 
   const handleNotify = () => {
-    if (!order) return;
-    markNotified(order.id);
-    setOrder(getOrderById(order.id)!);
-    alert(`已向 ${order.customerName}（${order.customerPhone}）发送取件通知`);
-  };
-
-  const handlePickup = () => {
-    if (!order) return;
-    if (confirm(`确认客户 ${order.customerName} 已取件？`)) {
-      confirmPickup(order.id);
-      setOrder(getOrderById(order.id)!);
+    if (!currentOrder) return;
+    try {
+      markNotified(currentOrder.id);
+      alert(`已向 ${currentOrder.customerName}（${currentOrder.customerPhone}）发送取件通知`);
+    } catch (e) {
+      console.error('发送通知失败:', e);
+      alert('发送通知失败，请重试');
     }
   };
 
-  const title = isNew ? '新建订单' : order ? `订单 #${order.orderNo}` : '订单详情';
+  const handlePickup = () => {
+    if (!currentOrder) return;
+    if (confirm(`确认客户 ${currentOrder.customerName} 已取件？`)) {
+      try {
+        confirmPickup(currentOrder.id);
+      } catch (e) {
+        console.error('确认取件失败:', e);
+        alert('操作失败，请重试');
+      }
+    }
+  };
+
+  const title = isNew ? '新建订单' : currentOrder ? `订单 #${currentOrder.orderNo}` : '订单详情';
 
   return (
     <>
@@ -167,7 +186,7 @@ export default function OrderDetail() {
         backLabel="返回订单列表"
         actions={
           <div className="flex items-center gap-3">
-            {!isNew && order && (
+            {!isNew && currentOrder && (
               <button
                 onClick={handleDelete}
                 className="btn-secondary inline-flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
@@ -238,9 +257,9 @@ export default function OrderDetail() {
           </div>
 
           <div className="space-y-6">
-            {!isNew && order && (
+            {!isNew && currentOrder && (
               <OrderStatusSection
-                order={order}
+                order={currentOrder}
                 onStatusChange={handleStatusChange}
                 onNotify={handleNotify}
                 onPickup={handlePickup}

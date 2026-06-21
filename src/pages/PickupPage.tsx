@@ -79,9 +79,13 @@ export default function PickupPage() {
 
   const handleNotify = (orderId: string) => {
     const order = getOrderById(orderId);
-    if (order) {
+    if (!order) return;
+    try {
       markNotified(orderId);
       alert(`已向 ${order.customerName}（${order.customerPhone}）发送取件通知`);
+    } catch (e) {
+      console.error('发送通知失败:', e);
+      alert('发送通知失败，请重试');
     }
   };
 
@@ -89,7 +93,12 @@ export default function PickupPage() {
     const order = getOrderById(orderId);
     if (!order) return;
     if (confirm(`确认客户 ${order.customerName} 已取件？金额：${formatCurrency(order.totalPrice)}`)) {
-      confirmPickup(orderId);
+      try {
+        confirmPickup(orderId);
+      } catch (e) {
+        console.error('确认取件失败:', e);
+        alert('操作失败，请重试');
+      }
     }
   };
 
