@@ -1,14 +1,16 @@
-import { useEffect } from 'react';
-import { User, Phone, CalendarDays, History, UserCheck } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { User, Phone, CalendarDays, History, UserCheck, Zap, AlertTriangle } from 'lucide-react';
 import { daysLater, formatDate } from '@/utils/helpers';
 import { useCustomerStore } from '@/store/customerStore';
-import type { CustomerProfile } from '@/types';
-import { BODY_MEASUREMENT_KEYS } from '@/types';
+import type { CustomerProfile, UrgentReason } from '@/types';
+import { BODY_MEASUREMENT_KEYS, URGENT_REASON_OPTIONS } from '@/types';
 
 interface CustomerInfo {
   customerName: string;
   customerPhone: string;
   pickupDate: string;
+  isUrgent?: boolean;
+  urgentReason?: UrgentReason;
 }
 
 interface Props {
@@ -27,9 +29,21 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
     }
   }, [existingProfile, onProfileFound]);
 
-  const handleChange = (key: keyof CustomerInfo, value: string) => {
-    onChange({ ...data, [key]: value });
+  const handleChange = (key: keyof CustomerInfo, value: string | boolean) => {
+    const newData = { ...data, [key]: value };
+    if (key === 'isUrgent' && !value) {
+      newData.urgentReason = '';
+    }
+    if (key === 'urgentReason') {
+      newData.isUrgent = !!value;
+    }
+    onChange(newData);
   };
+
+  const urgentRateInfo = useMemo(() => {
+    if (!data.isUrgent || !data.urgentReason) return null;
+    return URGENT_REASON_OPTIONS.find(o => o.value === data.urgentReason);
+  }, [data.isUrgent, data.urgentReason]);
 
   const hasMeasurementData = existingProfile &&
     Object.values(existingProfile.bodyMeasurements).some(v => v !== undefined && v > 0);
@@ -95,6 +109,79 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
             />
           </div>
         </div>
+      </div>
+
+      <div className="mt-5 pt-5 border-t border-coffee-100">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Zap className={`w-5 h-5 ${data.isUrgent ? 'text-red-500' : 'text-coffee-400'}`} />
+            <span className="font-semibold text-coffee-700">急件通道</span>
+            {data.isUrgent && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">
+                <AlertTriangle className="w-3 h-3" />
+                已启用加急
+              </span>
+            )}
+          </div>
+          <label className="inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!data.isUrgent}
+              onChange={e => handleChange('isUrgent', e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="relative w-11 h-6 bg-coffee-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500" />
+          </label>
+        </div>
+
+        {data.isUrgent && (
+          <div className="space-y-4 animate-slide-up">
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <p className="text-sm text-amber-800">
+                <strong>加急说明：</strong>启用急件通道后，订单将自动插队优先处理，并根据加急原因加收 30%-50% 的加急费。
+              </p>
+            </div>
+
+            <div>
+              <label className="input-label">
+                <span className="text-red-500">*</span> 加急原因
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {URGENT_REASON_OPTIONS.map(option => {
+                  const isActive = data.urgentReason === option.value;
+                  const btnClass = isActive
+                    ? 'border-red-500 bg-red-50 text-red-700 shadow-md'
+                    : 'border-coffee-200 bg-white text-coffee-600 hover:border-coffee-300 hover:bg-coffee-50';
+                  const rateClass = isActive ? 'text-red-600' : 'text-coffee-400';
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => handleChange('urgentReason', option.value)}
+                      className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${btnClass}`}
+                    >
+                      <div className="mb-1">{option.label}</div>
+                      <div className={`text-xs ${rateClass}`}>
+                        +{Math.round(option.rate * 100)}%
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {urgentRateInfo && (
+              <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-xl">
+                <span className="text-sm text-red-700">
+                  当前加急费率：<strong className="font-semibold">+{Math.round(urgentRateInfo.rate * 100)}%</strong>
+                </span>
+                <span className="text-xs text-red-600">
+                  ({urgentRateInfo.label})
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {existingProfile && (

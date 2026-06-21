@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Save, ArrowLeft, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, Trash2, Zap, AlertTriangle } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import PageContent from '@/components/PageContent';
 import CustomerInfoSection from '@/components/order/CustomerInfoSection';
@@ -12,7 +12,8 @@ import OrderStatusSection from '@/components/order/OrderStatusSection';
 import { useOrderStore } from '@/store/orderStore';
 import { useCustomerStore, bodyToMeasurements } from '@/store/customerStore';
 import { daysLater } from '@/utils/helpers';
-import type { OrderStatus, Measurement, AlterationItem, CustomerProfile } from '@/types';
+import type { OrderStatus, Measurement, AlterationItem, CustomerProfile, UrgentReason } from '@/types';
+import { URGENT_REASON_LABELS } from '@/types';
 
 interface FormData {
   customerName: string;
@@ -26,6 +27,11 @@ interface FormData {
   measurements: Measurement[];
   alterationItems: AlterationItem[];
   totalPrice: number;
+  basePrice: number;
+  isUrgent: boolean;
+  urgentReason: UrgentReason;
+  urgentFeeRate: number;
+  urgentFee: number;
   defectDescription: string;
   defectConfirmed: boolean;
 }
@@ -42,6 +48,11 @@ const initialFormData: FormData = {
   measurements: [],
   alterationItems: [],
   totalPrice: 0,
+  basePrice: 0,
+  isUrgent: false,
+  urgentReason: '',
+  urgentFeeRate: 0,
+  urgentFee: 0,
   defectDescription: '',
   defectConfirmed: false,
 };
@@ -81,6 +92,11 @@ export default function OrderDetail() {
         measurements: storeOrder.measurements,
         alterationItems: storeOrder.alterationItems,
         totalPrice: storeOrder.totalPrice,
+        basePrice: storeOrder.basePrice ?? storeOrder.totalPrice,
+        isUrgent: storeOrder.isUrgent ?? false,
+        urgentReason: (storeOrder.urgentReason ?? '') as UrgentReason,
+        urgentFeeRate: storeOrder.urgentFeeRate ?? 0,
+        urgentFee: storeOrder.urgentFee ?? 0,
         defectDescription: storeOrder.defectDescription,
         defectConfirmed: storeOrder.defectConfirmed,
       });
@@ -103,6 +119,23 @@ export default function OrderDetail() {
   const updateCustomerInfo = (data: Partial<FormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
   };
+
+  const { calculateUrgentFee } = useOrderStore();
+
+  useEffect(() => {
+    const basePrice = formData.alterationItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const { fee: urgentFee, rate: urgentFeeRate } = formData.isUrgent && formData.urgentReason
+      ? calculateUrgentFee(basePrice, formData.urgentReason)
+      : { fee: 0, rate: 0 };
+    const totalPrice = basePrice + urgentFee;
+
+    setFormData(prev => {
+      if (prev.basePrice === basePrice && prev.urgentFee === urgentFee && prev.totalPrice === totalPrice && prev.urgentFeeRate === urgentFeeRate) {
+        return prev;
+      }
+      return { ...prev, basePrice, urgentFee, urgentFeeRate, totalPrice };
+    });
+  }, [formData.alterationItems, formData.isUrgent, formData.urgentReason, calculateUrgentFee]);
 
   const handleProfileFound = useCallback((profile: CustomerProfile) => {
     setCustomerProfile(profile);
@@ -167,6 +200,11 @@ export default function OrderDetail() {
         brand: formData.brand,
         color: formData.color,
         requirements: formData.requirements,
+        basePrice: formData.basePrice,
+        isUrgent: formData.isUrgent,
+        urgentReason: formData.urgentReason,
+        urgentFeeRate: formData.urgentFeeRate,
+        urgentFee: formData.urgentFee,
         totalPrice: formData.totalPrice,
         measurements: formData.measurements,
         alterationItems: formData.alterationItems,
@@ -185,6 +223,11 @@ export default function OrderDetail() {
         brand: formData.brand,
         color: formData.color,
         requirements: formData.requirements,
+        basePrice: formData.basePrice,
+        isUrgent: formData.isUrgent,
+        urgentReason: formData.urgentReason,
+        urgentFeeRate: formData.urgentFeeRate,
+        urgentFee: formData.urgentFee,
         totalPrice: formData.totalPrice,
         measurements: formData.measurements,
         alterationItems: formData.alterationItems,
@@ -277,6 +320,8 @@ export default function OrderDetail() {
                 customerName: formData.customerName,
                 customerPhone: formData.customerPhone,
                 pickupDate: formData.pickupDate,
+                isUrgent: formData.isUrgent,
+                urgentReason: formData.urgentReason,
               }}
               onChange={updateCustomerInfo}
               onProfileFound={handleProfileFound}
@@ -327,6 +372,25 @@ export default function OrderDetail() {
 
             <div className="card p-6 sticky top-6">
               <h2 className="section-title">订单摘要</h2>
+
+              {formData.isUrgent && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                  <Zap className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-red-700 flex items-center gap-1">
+                      <AlertTriangle className="w-4 h-4" />
+                      急件订单
+                    </div>
+                    <div className="text-xs text-red-600 mt-1">
+                      原因：{URGENT_REASON_LABELS[formData.urgentReason]}
+                    </div>
+                    <div className="text-xs text-red-600">
+                      加急费率：+{Math.round(formData.urgentFeeRate * 100)}%
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between py-2 border-b border-coffee-100">
                   <span className="text-coffee-500">客户姓名</span>
@@ -350,11 +414,29 @@ export default function OrderDetail() {
                     {formData.defectConfirmed ? '已确认' : '未确认'}
                   </span>
                 </div>
+                {formData.isUrgent && (
+                  <div className="flex justify-between py-2 border-b border-coffee-100">
+                    <span className="text-coffee-500">加急状态</span>
+                    <span className="text-red-600 font-medium">已启用</span>
+                  </div>
+                )}
               </div>
 
-              <div className="mt-5 pt-5 border-t-2 border-coffee-200">
-                <div className="flex items-end justify-between">
-                  <span className="text-coffee-600">应收金额</span>
+              <div className="mt-5 pt-5 border-t-2 border-coffee-200 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-coffee-500">基础费用</span>
+                  <span className="text-coffee-700">¥{formData.basePrice}</span>
+                </div>
+                {formData.isUrgent && formData.urgentFee > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-red-500">
+                      加急费（+{Math.round(formData.urgentFeeRate * 100)}%）
+                    </span>
+                    <span className="text-red-600 font-medium">+¥{formData.urgentFee}</span>
+                  </div>
+                )}
+                <div className="flex items-end justify-between pt-2">
+                  <span className="text-coffee-600 font-medium">应收金额</span>
                   <div className="text-right">
                     <span className="font-serif text-4xl font-bold text-gold-600">
                       ¥{formData.totalPrice}

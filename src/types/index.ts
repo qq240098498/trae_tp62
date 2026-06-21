@@ -24,6 +24,8 @@ export interface AlterationItem {
   subtotal: number;
 }
 
+export type UrgentReason = 'next_day' | 'wedding' | 'business' | 'party' | 'other' | '';
+
 export interface Order {
   id: string;
   orderNo: string;
@@ -37,6 +39,11 @@ export interface Order {
   requirements: string;
   status: OrderStatus;
   totalPrice: number;
+  basePrice: number;
+  isUrgent: boolean;
+  urgentReason: UrgentReason;
+  urgentFeeRate: number;
+  urgentFee: number;
   measurements: Measurement[];
   alterationItems: AlterationItem[];
   defectDescription: string;
@@ -86,6 +93,23 @@ export const MEASUREMENT_PARTS = [
   { name: '裤长', unit: 'cm' },
   { name: '领围', unit: 'cm' },
 ];
+
+export const URGENT_REASON_OPTIONS: { value: UrgentReason; label: string; rate: number }[] = [
+  { value: 'next_day', label: '第二天要穿', rate: 0.5 },
+  { value: 'wedding', label: '婚礼前', rate: 0.5 },
+  { value: 'business', label: '商务会议', rate: 0.4 },
+  { value: 'party', label: '宴会活动', rate: 0.3 },
+  { value: 'other', label: '其他紧急', rate: 0.3 },
+];
+
+export const URGENT_REASON_LABELS: Record<UrgentReason, string> = {
+  '': '普通',
+  'next_day': '第二天要穿',
+  'wedding': '婚礼前',
+  'business': '商务会议',
+  'party': '宴会活动',
+  'other': '其他紧急',
+};
 
 export interface BodyMeasurements {
   shoulderWidth?: number;
