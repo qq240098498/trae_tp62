@@ -1,14 +1,15 @@
-import { Ruler, Plus, X } from 'lucide-react';
-import type { Measurement } from '@/types';
-import { MEASUREMENT_PARTS } from '@/types';
+import { Ruler, Plus, X, Download, Info } from 'lucide-react';
+import type { Measurement, CustomerProfile } from '@/types';
+import { MEASUREMENT_PARTS, BODY_MEASUREMENT_KEYS } from '@/types';
 import { generateId } from '@/utils/helpers';
 
 interface Props {
   measurements: Measurement[];
   onChange: (measurements: Measurement[]) => void;
+  customerProfile?: CustomerProfile | null;
 }
 
-export default function MeasurementsSection({ measurements, onChange }: Props) {
+export default function MeasurementsSection({ measurements, onChange, customerProfile }: Props) {
   const addMeasurement = (partName: string, unit: string) => {
     const exists = measurements.find(m => m.partName === partName);
     if (exists) return;
@@ -34,12 +35,78 @@ export default function MeasurementsSection({ measurements, onChange }: Props) {
     p => !measurements.find(m => m.partName === p.name)
   );
 
+  const hasProfileData = customerProfile &&
+    Object.values(customerProfile.bodyMeasurements).some(v => v !== undefined && v > 0);
+
+  const profileMeasurements = customerProfile
+    ? BODY_MEASUREMENT_KEYS.filter(k => customerProfile.bodyMeasurements[k.key] !== undefined)
+    : [];
+
+  const importFromProfile = () => {
+    if (!customerProfile) return;
+
+    const newMeasurements: Measurement[] = [...measurements];
+
+    profileMeasurements.forEach(k => {
+      const value = customerProfile.bodyMeasurements[k.key];
+      if (value === undefined) return;
+
+      const existing = newMeasurements.find(m => m.partName === k.label);
+      if (existing) {
+        existing.originalSize = value;
+        existing.targetSize = value;
+      } else {
+        newMeasurements.push({
+          id: generateId(),
+          partName: k.label,
+          originalSize: value,
+          targetSize: value,
+          unit: k.unit,
+        });
+      }
+    });
+
+    onChange(newMeasurements);
+  };
+
+  const importedCount = profileMeasurements.filter(k =>
+    measurements.find(m => m.partName === k.label && m.originalSize === customerProfile?.bodyMeasurements[k.key])
+  ).length;
+
   return (
     <div className="card p-6">
-      <h2 className="section-title">
-        <Ruler className="w-5 h-5 text-gold-500" />
-        尺寸测量
-      </h2>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="section-title !mb-0">
+          <Ruler className="w-5 h-5 text-gold-500" />
+          尺寸测量
+        </h2>
+        {hasProfileData && (
+          <button
+            onClick={importFromProfile}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              importedCount === profileMeasurements.length
+                ? 'bg-green-100 text-green-700 cursor-default'
+                : 'bg-gold-100 text-gold-700 hover:bg-gold-200'
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            {importedCount === profileMeasurements.length
+              ? `已导入 ${importedCount} 项历史数据`
+              : `一键导入历史量体数据 (${profileMeasurements.length} 项)`
+            }
+          </button>
+        )}
+      </div>
+
+      {hasProfileData && measurements.length === 0 && (
+        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-800">
+            <p className="font-medium mb-1">发现历史量体数据</p>
+            <p>点击右上方「一键导入历史量体数据」按钮，可自动填充该客户上次的测量尺寸，免去重复测量。</p>
+          </div>
+        </div>
+      )}
 
       {availableParts.length > 0 && (
         <div className="mb-5">
@@ -74,15 +141,29 @@ export default function MeasurementsSection({ measurements, onChange }: Props) {
             <tbody>
               {measurements.map(m => {
                 const diff = m.targetSize - m.originalSize;
+                const profileVal = customerProfile?.bodyMeasurements[
+                  BODY_MEASUREMENT_KEYS.find(k => k.label === m.partName)?.key as keyof typeof customerProfile.bodyMeasurements
+                ];
+                const isFromProfile = profileVal !== undefined && m.originalSize === profileVal;
+
                 return (
-                  <tr key={m.id} className="border-b border-coffee-100 hover:bg-coffee-50/50">
-                    <td className="py-3 px-4 font-medium text-coffee-800">{m.partName}</td>
+                  <tr key={m.id} className={`border-b border-coffee-100 hover:bg-coffee-50/50 ${isFromProfile ? 'bg-green-50/30' : ''}`}>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-coffee-800">{m.partName}</span>
+                        {isFromProfile && (
+                          <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                            历史数据
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4">
                       <input
                         type="number"
                         value={m.originalSize || ''}
                         onChange={e => updateMeasurement(m.id, 'originalSize', Number(e.target.value))}
-                        className="input-field text-center w-24"
+                        className={`input-field text-center w-24 ${isFromProfile ? 'border-green-400 focus:ring-green-400' : ''}`}
                         placeholder="0"
                       />
                     </td>

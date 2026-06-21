@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Save, ArrowLeft, Trash2 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
@@ -10,8 +10,9 @@ import AlterationItemsSection from '@/components/order/AlterationItemsSection';
 import DefectSection from '@/components/order/DefectSection';
 import OrderStatusSection from '@/components/order/OrderStatusSection';
 import { useOrderStore } from '@/store/orderStore';
+import { useCustomerStore } from '@/store/customerStore';
 import { daysLater } from '@/utils/helpers';
-import type { OrderStatus, Measurement, AlterationItem } from '@/types';
+import type { OrderStatus, Measurement, AlterationItem, CustomerProfile } from '@/types';
 
 interface FormData {
   customerName: string;
@@ -54,10 +55,12 @@ export default function OrderDetail() {
     isNew ? null : state.orders.find(o => o.id === id) || null
   );
   const { createOrder, updateOrder, deleteOrder, updateOrderStatus, markNotified, confirmPickup } = useOrderStore();
+  const { updateProfileFromMeasurements, getProfileByPhone } = useCustomerStore();
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [saved, setSaved] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
 
   useEffect(() => {
     if (initialized) return;
@@ -81,9 +84,16 @@ export default function OrderDetail() {
         defectDescription: storeOrder.defectDescription,
         defectConfirmed: storeOrder.defectConfirmed,
       });
+      const profile = getProfileByPhone(storeOrder.customerPhone);
+      if (profile) {
+        setCustomerProfile(profile);
+        if (!storeOrder.customerName && profile.customerName) {
+          setFormData(prev => ({ ...prev, customerName: profile.customerName }));
+        }
+      }
       setInitialized(true);
     }
-  }, [isNew, storeOrder, initialized]);
+  }, [isNew, storeOrder, initialized, getProfileByPhone]);
 
   const currentOrder = useMemo(() => {
     if (isNew) return null;
@@ -94,11 +104,40 @@ export default function OrderDetail() {
     setFormData(prev => ({ ...prev, ...data }));
   };
 
+  const handleProfileFound = useCallback((profile: CustomerProfile) => {
+    setCustomerProfile(profile);
+    if (profile.customerName && !formData.customerName) {
+      setFormData(prev => ({ ...prev, customerName: profile.customerName }));
+    }
+  }, [formData.customerName]);
+
+  useEffect(() => {
+    if (!formData.customerPhone) {
+      setCustomerProfile(null);
+      return;
+    }
+    const profile = getProfileByPhone(formData.customerPhone);
+    if (profile) {
+      setCustomerProfile(profile);
+      if (profile.customerName && !formData.customerName) {
+        setFormData(prev => ({ ...prev, customerName: profile.customerName }));
+      }
+    } else {
+      setCustomerProfile(null);
+    }
+  }, [formData.customerPhone, formData.customerName, getProfileByPhone]);
+
   const handleSave = () => {
     if (!formData.customerName || !formData.customerPhone) {
       alert('请填写客户姓名和联系电话');
       return;
     }
+
+    updateProfileFromMeasurements(
+      formData.customerName,
+      formData.customerPhone,
+      formData.measurements
+    );
 
     if (isNew) {
       const newOrder = createOrder({
@@ -222,6 +261,7 @@ export default function OrderDetail() {
                 pickupDate: formData.pickupDate,
               }}
               onChange={updateCustomerInfo}
+              onProfileFound={handleProfileFound}
             />
 
             <ClothingInfoSection
@@ -238,6 +278,7 @@ export default function OrderDetail() {
             <MeasurementsSection
               measurements={formData.measurements}
               onChange={ms => setFormData(prev => ({ ...prev, measurements: ms }))}
+              customerProfile={customerProfile}
             />
 
             <AlterationItemsSection

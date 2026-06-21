@@ -86,3 +86,32 @@ export const MEASUREMENT_PARTS = [
   { name: '裤长', unit: 'cm' },
   { name: '领围', unit: 'cm' },
 ];
+
+export interface BodyMeasurements {
+  shoulderWidth?: number;
+  chest?: number;
+  waist?: number;
+  hips?: number;
+  clothingLength?: number;
+  sleeveLength?: number;
+}
+
+export const BODY_MEASUREMENT_KEYS: { key: keyof BodyMeasurements; label: string; unit: string }[] = [
+  { key: 'shoulderWidth', label: '肩宽', unit: 'cm' },
+  { key: 'chest', label: '胸围', unit: 'cm' },
+  { key: 'waist', label: '腰围', unit: 'cm' },
+  { key: 'hips', label: '臀围', unit: 'cm' },
+  { key: 'clothingLength', label: '衣长', unit: 'cm' },
+  { key: 'sleeveLength', label: '袖长', unit: 'cm' },
+];
+
+export interface CustomerProfile {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  bodyMeasurements: BodyMeasurements;
+  lastMeasurementDate: string;
+  orderCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
