@@ -4,7 +4,7 @@ import { daysLater, formatDate } from '@/utils/helpers';
 import { useCustomerStore } from '@/store/customerStore';
 import { useOrderStore } from '@/store/orderStore';
 import { Link } from 'react-router-dom';
-import type { CustomerProfile } from '@/types';
+import type { CustomerProfile, UrgentLevel } from '@/types';
 import { BODY_MEASUREMENT_KEYS, URGENT_LEVEL_CONFIGS, URGENT_REASON_OPTIONS, FIT_PREFERENCE_LABELS, HEM_PREFERENCE_LABELS } from '@/types';
 
 interface CustomerInfo {
@@ -18,9 +18,10 @@ interface Props {
   data: CustomerInfo;
   onChange: (data: CustomerInfo) => void;
   onProfileFound?: (profile: CustomerProfile) => void;
+  onUrgentLevelChange?: (level: UrgentLevel) => void;
 }
 
-export default function CustomerInfoSection({ data, onChange, onProfileFound }: Props) {
+export default function CustomerInfoSection({ data, onChange, onProfileFound, onUrgentLevelChange }: Props) {
   const { getProfileByPhone } = useCustomerStore();
   const { calculateUrgentByDate } = useOrderStore();
   const existingProfile = getProfileByPhone(data.customerPhone);
@@ -49,6 +50,12 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
       pickupDate: data.pickupDate,
       urgentReason: newReason,
     });
+  };
+
+  const handleUrgentLevelClick = (level: UrgentLevel) => {
+    if (onUrgentLevelChange) {
+      onUrgentLevelChange(level);
+    }
   };
 
   const urgentInfo = useMemo(() => {
@@ -145,14 +152,16 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
               const isActive = urgentInfo.level === config.level;
               const isUrgent = config.level !== 'normal';
               return (
-                <div
+                <button
                   key={config.level}
-                  className={`relative p-3 rounded-xl border-2 text-center transition-all ${
+                  type="button"
+                  onClick={() => handleUrgentLevelClick(config.level)}
+                  className={`relative p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
                     isActive
                       ? isUrgent
-                        ? 'border-red-500 bg-red-50 shadow-md'
-                        : 'border-coffee-500 bg-coffee-50 shadow-md'
-                      : 'border-coffee-200 bg-white'
+                        ? 'border-red-500 bg-red-50 shadow-md hover:bg-red-100'
+                        : 'border-coffee-500 bg-coffee-50 shadow-md hover:bg-coffee-100'
+                      : 'border-coffee-200 bg-white hover:border-coffee-300 hover:bg-coffee-50'
                   }`}
                 >
                   {isActive && (
@@ -183,7 +192,7 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
                   }`}>
                     {config.description}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -199,6 +208,9 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
               </p>
             </div>
           )}
+          <p className="text-xs text-coffee-400 mt-2">
+            💡 点击上方加急等级卡片可快速选择取件时间，系统将自动调整取件日期和加急费用
+          </p>
 
           <div>
             <label className="input-label">

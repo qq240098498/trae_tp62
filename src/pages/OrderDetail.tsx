@@ -126,6 +126,18 @@ export default function OrderDetail() {
     setFormData(prev => ({ ...prev, ...data }));
   };
 
+  const handleUrgentLevelChange = (level: UrgentLevel) => {
+    const config = URGENT_LEVEL_CONFIGS.find(c => c.level === level);
+    if (!config) return;
+    let newPickupDate: string;
+    if (config.level === 'normal') {
+      newPickupDate = daysLater(8);
+    } else {
+      newPickupDate = daysLater(config.days);
+    }
+    setFormData(prev => ({ ...prev, pickupDate: newPickupDate }));
+  };
+
   const { calculateUrgentByDate } = useOrderStore();
 
   useEffect(() => {
@@ -330,6 +342,7 @@ export default function OrderDetail() {
               }}
               onChange={updateCustomerInfo}
               onProfileFound={handleProfileFound}
+              onUrgentLevelChange={handleUrgentLevelChange}
             />
 
             <ClothingInfoSection
