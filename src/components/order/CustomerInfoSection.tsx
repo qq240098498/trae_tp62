@@ -31,7 +31,23 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
   }, [existingProfile, onProfileFound]);
 
   const handleChange = (key: keyof CustomerInfo, value: string) => {
-    onChange({ ...data, [key]: value });
+    const newData: CustomerInfo = {
+      customerName: key === 'customerName' ? value : data.customerName,
+      customerPhone: key === 'customerPhone' ? value : data.customerPhone,
+      pickupDate: key === 'pickupDate' ? value : data.pickupDate,
+      urgentReason: key === 'urgentReason' ? value : data.urgentReason,
+    };
+    onChange(newData);
+  };
+
+  const handleUrgentReasonClick = (reason: string) => {
+    const newReason = data.urgentReason === reason ? '' : reason;
+    onChange({
+      customerName: data.customerName,
+      customerPhone: data.customerPhone,
+      pickupDate: data.pickupDate,
+      urgentReason: newReason,
+    });
   };
 
   const urgentInfo = useMemo(() => {
@@ -194,8 +210,8 @@ export default function CustomerInfoSection({ data, onChange, onProfileFound }: 
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => handleChange('urgentReason', isActive ? '' : option.value)}
-                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                    onClick={() => handleUrgentReasonClick(option.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer ${
                       isActive
                         ? 'bg-red-100 text-red-700 border border-red-300'
                         : 'bg-coffee-50 text-coffee-600 border border-coffee-200 hover:bg-coffee-100'
